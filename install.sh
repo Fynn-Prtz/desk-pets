@@ -95,7 +95,7 @@ say "registering plugins in shell.json"
 backup "$SHELL_JSON"
 defaults='[
   { "id": "fynnp.desksys",    "corner": "top-right",    "marginX": 32, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000 },
-  { "id": "fynnp.deskdisk",   "corner": "top-left",     "marginX": 32, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000, "rows": 4 },
+  { "id": "fynnp.deskdisk",   "corner": "center-left",  "marginX": 32, "marginY": 0, , "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000, "rows": 4 },
   { "id": "fynnp.deskaudio",  "corner": "bottom-right", "marginX": 32, "marginY": 32, "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.deskgames",  "corner": "center-right", "marginX": 32, "marginY": 0,  "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.desklayout", "grid": 24 },

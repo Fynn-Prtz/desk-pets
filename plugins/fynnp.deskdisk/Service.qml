@@ -17,7 +17,7 @@ import qs.Ui
 // entirely while the card is covered.
 //
 // Settings live inline on this plugin's entry in ~/.config/omarchy/shell.json:
-//   { "id": "fynnp.deskdisk", "monitor": "DP-1", "corner": "top-left",
+//   { "id": "fynnp.deskdisk", "monitor": "DP-1", "corner": "center-left",
 //     "marginX": 32, "marginY": 58, "opacity": 0.5, "interval": 1000,
 //     "rows": 4, "hide": ["/boot"] }
 Item {
@@ -35,7 +35,7 @@ Item {
   // Size on the fallback monitor. 0 = auto: keep the same physical size as on
   // the home monitor (undo the extra scaling of a HiDPI-scaled second screen).
   property real awayScale: 0
-  property string corner: "top-left"
+  property string corner: "center-left"
   property int marginX: 32
   property int marginY: 58
   property real cardOpacity: 0.5
@@ -56,8 +56,8 @@ Item {
     fallbackMonitor = typeof entry.fallbackMonitor === "string" ? entry.fallbackMonitor.slice(0, 64) : ""
     var as = parseFloat(entry.awayScale)
     awayScale = isNaN(as) ? 0 : Math.max(0.4, Math.min(1.5, as))
-    var c = String(entry.corner || "top-left")
-    corner = ["top-left", "top-right", "bottom-left", "bottom-right", "center-left", "center-right"].indexOf(c) >= 0 ? c : "top-left"
+    var c = String(entry.corner || "center-left")
+    corner = ["top-left", "top-right", "bottom-left", "bottom-right", "center-left", "center-right"].indexOf(c) >= 0 ? c : "center-left"
     marginX = clampInt(entry.marginX, 0, 2000, 32)
     marginY = clampInt(entry.marginY, 0, 2000, 58)
     var op = parseFloat(entry.opacity)
