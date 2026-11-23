@@ -1,0 +1,504 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import Quickshell.Wayland
+import Quickshell.Hyprland
+import qs.Commons
+import qs.Commons as Commons
+import qs.Ui
+
+// Desk Net: the system card's sibling. Default-route interface and address,
+// live down / up rates, a 40 s throughput history and totals since the card
+// started, with a pixel router that dozes, flickers and loses its antennas.
+//
+// Data comes from ~/.local/bin/desknet-feed (Rust, source in helpers/desknet-feed of the desk-pets repo):
+// it blocks on stdin and answers one JSON line per request (rates computed
+// there), so it costs nothing between polls. Polling stops entirely while the
+// card is covered.
+//
+// Settings live inline on this plugin's entry in ~/.config/omarchy/shell.json:
+//   { "id": "fynnp.desknet", "monitor": "DP-1", "corner": "bottom-left",
+//     "marginX": 32, "marginY": 32, "opacity": 0.5, "interval": 1000 }
+Item {
+  id: root
+
+  property var shell: null
+  property var manifest: null
+  readonly property string home: Quickshell.env("HOME")
+
+  Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+
+  // ---------- settings ----------
+  property string monitorName: ""
+  property string fallbackMonitor: ""
+  // Size on the fallback monitor. 0 = auto: keep the same physical size as on
+  // the home monitor (undo the extra scaling of a HiDPI-scaled second screen).
+  property real awayScale: 0
+  property string corner: "bottom-left"
+  property int marginX: 32
+  property int marginY: 32
+  property real cardOpacity: 0.5
+  property real borderOpacity: 0.08
+  property int interval: 1000
+
+  function applySettings(raw) {
+    var cfg = null
+    try { cfg = JSON.parse(raw) } catch (e) { return }
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    var entry = {}
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === "fynnp.desknet") { entry = list[i]; break }
+    }
+    monitorName = typeof entry.monitor === "string" ? entry.monitor.slice(0, 64) : ""
+    fallbackMonitor = typeof entry.fallbackMonitor === "string" ? entry.fallbackMonitor.slice(0, 64) : ""
+    var as = parseFloat(entry.awayScale)
+    awayScale = isNaN(as) ? 0 : Math.max(0.4, Math.min(1.5, as))
+    var c = String(entry.corner || "bottom-left")
+    corner = ["top-left", "top-right", "bottom-left", "bottom-right", "center-left", "center-right"].indexOf(c) >= 0 ? c : "bottom-left"
+    marginX = clampInt(entry.marginX, 0, 2000, 32)
+    marginY = clampInt(entry.marginY, 0, 2000, 32)
+    var op = parseFloat(entry.opacity)
+    cardOpacity = isNaN(op) ? 0.5 : Math.max(0.15, Math.min(1, op))
+    var bo = parseFloat(entry.borderOpacity)
+    borderOpacity = isNaN(bo) ? 0.08 : Math.max(0, Math.min(1, bo))
+    interval = clampInt(entry.interval, 500, 10000, 1000)
+  }
+
+  function clampInt(v, lo, hi, dflt) {
+    var n = parseInt(v, 10)
+    if (isNaN(n)) return dflt
+    return Math.max(lo, Math.min(hi, n))
+  }
+
+  FileView {
+    path: root.home + "/.config/omarchy/shell.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applySettings(text())
+    onFileChanged: reload()
+  }
+
+  readonly property var homeScreen: {
+    var screens = Quickshell.screens
+    for (var i = 0; i < screens.length; i++)
+      if (screens[i].name === place.monitor) return screens[i]
+    return screens.length > 0 ? screens[0] : null
+  }
+
+  // ---------- fullscreen escape ----------
+  // When the home monitor shows a fullscreen window and the other monitor's
+  // active workspace is empty, the card moves there; it returns as soon as
+  // either stops being true. "fallbackMonitor" picks the monitor, else the
+  // first other one.
+  readonly property var awayScreen: {
+    var screens = Quickshell.screens
+    var other = null
+    for (var i = 0; i < screens.length; i++) {
+      if (screens[i] === homeScreen) continue
+      if (screens[i].name === root.fallbackMonitor) return screens[i]
+      if (!other) other = screens[i]
+    }
+    return other
+  }
+
+  function activeWs(screen) {
+    var m = screen ? Hyprland.monitorFor(screen) : null
+    return m ? m.activeWorkspace : null
+  }
+
+  readonly property bool homeFullscreen: {
+    var rev = hyprRevision
+    var ws = activeWs(homeScreen)
+    return !!ws && ws.hasFullscreen
+  }
+
+  readonly property bool awayEmpty: {
+    var rev = hyprRevision
+    var ws = activeWs(awayScreen)
+    return !!ws && (!ws.toplevels || ws.toplevels.values.length === 0)
+  }
+
+  readonly property var targetScreen: !place.editing && homeFullscreen && awayScreen && awayEmpty ? awayScreen : homeScreen
+  readonly property bool isAway: !!targetScreen && targetScreen !== homeScreen
+
+  readonly property real uiScale: {
+    if (!isAway) return 1
+    if (awayScale > 0) return awayScale
+    // Hyprland's own (fractional) scale; Qt rounds 1.25 up to a dpr of 2.
+    var hm = homeScreen ? Hyprland.monitorFor(homeScreen) : null
+    var am = Hyprland.monitorFor(targetScreen)
+    var h = hm && hm.scale > 0 ? hm.scale : 1
+    var a = am && am.scale > 0 ? am.scale : 1
+    return Math.max(0.4, Math.min(1, h / a))
+  }
+  readonly property int mx: Math.round(marginX * uiScale)
+  readonly property int my: Math.round(marginY * uiScale)
+
+  // ---------- occlusion (same rules as the audio card) ----------
+  readonly property var hyprMonitor: targetScreen ? Hyprland.monitorFor(targetScreen) : null
+  property int hyprRevision: 0
+
+  readonly property var cardRect: place.rect
+
+  readonly property bool covered: {
+    var rev = hyprRevision
+    var r = cardRect
+    var ws = hyprMonitor ? hyprMonitor.activeWorkspace : null
+    if (!r || !ws || !ws.toplevels) return false
+    var wins = ws.toplevels.values
+    for (var i = 0; i < wins.length; i++) {
+      var ipc = wins[i].lastIpcObject
+      if (!ipc || !ipc.at || !ipc.size || ipc.hidden) continue
+      if (ipc.at[0] <= r.x && ipc.at[1] <= r.y
+          && ipc.at[0] + ipc.size[0] >= r.x + r.w && ipc.at[1] + ipc.size[1] >= r.y + r.h)
+        return true
+    }
+    return false
+  }
+
+  readonly property bool active: win.visible && (place.editing || !covered)
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      switch (event.name) {
+      case "openwindow": case "closewindow": case "movewindowv2": case "workspacev2":
+      case "focusedmonv2": case "changefloatingmode": case "fullscreen": case "activewindowv2":
+      case "moveworkspacev2": case "minimized":
+        hyprRefresh.restart()
+      }
+    }
+  }
+  Timer {
+    id: hyprRefresh
+    interval: 100
+    onTriggered: { Hyprland.refreshMonitors(); Hyprland.refreshWorkspaces(); Hyprland.refreshToplevels(); hyprSettle.restart() }
+  }
+  Timer {
+    id: hyprSettle
+    interval: 150
+    onTriggered: root.hyprRevision++
+  }
+  Component.onCompleted: hyprRefresh.restart()
+
+  // ---------- network feed ----------
+  property bool ready: false
+  property string iface: ""
+  property string ip: ""
+  property bool wifi: false
+  property real rx: 0            // bytes/s
+  property real tx: 0
+  property real totalRx: 0       // bytes since the card started
+  property real totalTx: 0
+  property var rxHistory: []
+  property var txHistory: []
+  readonly property int historyLength: 40
+
+  function num(v) {
+    var n = Number(v)
+    return v === null || v === undefined || !isFinite(n) ? 0 : Math.max(0, n)
+  }
+
+  function ingest(line) {
+    var d = null
+    try { d = JSON.parse(line) } catch (e) { return }
+    if (!d || typeof d !== "object") return
+    iface = typeof d["if"] === "string" ? d["if"].replace(/[\x00-\x1f\x7f]/g, "").slice(0, 24) : ""
+    ip = typeof d.ip === "string" ? d.ip.replace(/[^0-9.]/g, "").slice(0, 15) : ""
+    wifi = d.wifi === true
+    rx = num(d.rx)
+    tx = num(d.tx)
+    totalRx = num(d.trx)
+    totalTx = num(d.ttx)
+    var hr = rxHistory.slice(-(historyLength - 1))
+    hr.push(rx)
+    rxHistory = hr
+    var ht = txHistory.slice(-(historyLength - 1))
+    ht.push(tx)
+    txHistory = ht
+    ready = true
+  }
+
+  Process {
+    id: feed
+    command: [root.home + "/.local/bin/desknet-feed"]
+    running: true
+    stdinEnabled: true
+    stdout: SplitParser { onRead: function(line) { root.ingest(line) } }
+    onExited: feedRestart.restart()
+  }
+  Timer {
+    id: feedRestart
+    interval: 5000
+    onTriggered: feed.running = true
+  }
+
+  Timer {
+    interval: root.interval
+    repeat: true
+    triggeredOnStart: true
+    running: root.active && feed.running
+    onTriggered: feed.write("\n")
+  }
+
+  // ---------- derived ----------
+  readonly property bool online: iface !== ""
+  // Shared scale for both history halves: the window's peak, but never below
+  // ~1 Mbit/s so background chatter stays a flat baseline.
+  readonly property real historyScale: {
+    var m = 125000
+    for (var i = 0; i < rxHistory.length; i++) m = Math.max(m, rxHistory[i])
+    for (var j = 0; j < txHistory.length; j++) m = Math.max(m, txHistory[j])
+    return m
+  }
+  function scaled(list) {
+    var out = []
+    for (var i = 0; i < list.length; i++) out.push(list[i] / historyScale)
+    return out
+  }
+  // Mood from the busiest of the last 3 samples, so it doesn't flap per second.
+  readonly property real recent: {
+    var m = 0
+    var n = Math.min(rxHistory.length, txHistory.length)
+    for (var i = Math.max(0, n - 3); i < n; i++) m = Math.max(m, rxHistory[i] + txHistory[i])
+    return m
+  }
+  readonly property string mood: !ready ? "idle"
+    : !online ? "offline"
+    : recent < 24000 ? "idle"
+    : recent < 500000 ? "light"
+    : "busy"
+
+  function fmt(v, d) { return Commons.I18n.formatNumber(v, d) }
+  // Decimal units, like file managers and download dialogs.
+  function bytes(v) {
+    if (v < 999.5) return fmt(Math.round(v), 0) + " B"
+    var units = ["KB", "MB", "GB", "TB"]
+    var u = -1
+    while (v >= 999.5 && u < units.length - 1) { v /= 1000; u++ }
+    return fmt(v, v < 100 ? 1 : 0) + " " + units[u]
+  }
+  function rate(v) { return bytes(v) + "/s" }
+  readonly property real totalBoth: totalRx + totalTx
+
+  // Pixel buddy clock: only ticks while visible and something is animating.
+  property real clock: 0
+  Timer {
+    interval: 250
+    repeat: true
+    running: root.active && (buddy.sleepy || root.mood === "busy" || buddy.moving)
+    onTriggered: root.clock += 0.25
+  }
+
+  // Mood bus, read-only: the router reacts to the cat but doesn't publish a
+  // mood of its own (no name = nothing written).
+  DeskLink { id: link }
+
+  // ---------- look ----------
+  readonly property int cardWidth: 360
+  readonly property int pad: Style.space(14)
+
+  PanelWindow {
+    id: win
+    screen: root.targetScreen
+    visible: !!root.targetScreen
+    color: "transparent"
+    implicitWidth: Math.ceil(root.cardWidth * root.uiScale)
+    implicitHeight: Math.ceil(card.height * root.uiScale)
+
+    // Position, layer and input come from DeskPlace (layout file + edit mode).
+    anchors {
+      top: place.anchorTop
+      bottom: place.anchorBottom
+      left: place.anchorLeft
+      right: place.anchorRight
+    }
+    margins {
+      top: place.marginTop
+      bottom: place.marginBottom
+      left: place.marginLeft
+      right: place.marginRight
+    }
+
+    WlrLayershell.namespace: "fynnp-desknet"
+    WlrLayershell.layer: place.wlrLayer
+    WlrLayershell.keyboardFocus: place.keyboardFocus
+    exclusionMode: ExclusionMode.Ignore
+    // Nothing to click: let the pointer fall through to the desktop.
+    mask: place.editing ? place.editMask : place.noInput
+
+    // Placement + edit mode; see docs/DESKPLACE.md in the desk-pets repo.
+    DeskPlace {
+      id: place
+      pluginId: "fynnp.desknet"
+      label: root.manifest && root.manifest.name ? String(root.manifest.name) : "Desk Net"
+      defaultMonitor: root.monitorName
+      corner: root.corner
+      marginX: root.marginX
+      marginY: root.marginY
+      homeScreen: root.homeScreen
+      targetScreen: root.targetScreen
+      uiScale: root.uiScale
+      cardWidth: root.cardWidth
+      cardHeight: card.height
+    }
+
+    BorderSurface {
+      id: card
+      x: place.cardX
+      y: place.cardY
+      width: root.cardWidth
+      height: card.borderTop + root.pad + content.implicitHeight + root.pad + card.borderBottom
+      color: Qt.rgba(Color.popups.background.r, Color.popups.background.g, Color.popups.background.b, root.cardOpacity)
+      Behavior on color { ColorAnimation { duration: Style.duration(250); easing.type: Easing.OutCubic } }
+      borderSpec: root.borderOpacity > 0 ? Border.flat(Util.alpha(Color.foreground, root.borderOpacity), 1) : Border.none()
+      radius: Style.cornerRadius
+      // Shrink as a whole on the fallback monitor; layout stays identical.
+      scale: root.uiScale
+      transformOrigin: Item.TopLeft
+
+      Column {
+        id: content
+        x: card.borderLeft + root.pad
+        y: card.borderTop + root.pad
+        width: card.width - card.borderLeft - card.borderRight - root.pad * 2
+        spacing: Style.space(10)
+
+        // ---- pixel router + interface / down / up ----
+        Item {
+          width: parent.width
+          height: buddy.height
+
+          PixelRouter {
+            id: buddy
+            px: 4
+            mood: root.mood
+            clock: root.clock
+            active: root.active
+            rx: root.rx
+            tx: root.tx
+            catMood: link.peers.cat || ""
+          }
+
+          Column {
+            anchors.left: buddy.right
+            anchors.leftMargin: Style.space(10)
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+
+            // interface + address (or the state while there is none)
+            Item {
+              width: parent.width
+              height: ifName.implicitHeight
+
+              DaText {
+                id: ifGlyph
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18
+                text: !root.ready || root.online ? (root.wifi ? "󰖩" : "󰈀") : "󰲛"
+                color: root.ready && !root.online ? Commons.Color.urgent : Commons.Color.accent
+                font.pixelSize: Style.font.title
+              }
+              DaText {
+                id: ifName
+                anchors.left: ifGlyph.right
+                anchors.leftMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, parent.width - ifGlyph.width - 6)
+                text: !root.ready ? strings.t("waiting", "Waking up…")
+                  : root.online ? root.iface : strings.t("offline", "Offline")
+                color: root.ready && !root.online ? Commons.Color.urgent : Commons.Color.foreground
+                font.pixelSize: Style.font.subtitle
+                font.bold: true
+              }
+              DaText {
+                anchors.left: ifName.right
+                anchors.leftMargin: 8
+                anchors.right: parent.right
+                anchors.baseline: ifName.baseline
+                visible: root.ready && root.online
+                text: root.ip || strings.t("noAddress", "no IPv4")
+                font.pixelSize: Style.font.caption
+                opacity: 0.6
+              }
+            }
+
+            // down / up rates
+            Row {
+              spacing: 6
+              DaText {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18
+                text: "󰇚"
+                color: Commons.Color.accent
+                font.pixelSize: Style.font.title
+              }
+              DaText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.rate(root.rx)
+                font.pixelSize: Style.font.body
+                font.bold: true
+                opacity: root.online ? 1 : 0.5
+              }
+            }
+            Row {
+              spacing: 6
+              DaText {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18
+                text: "󰕒"
+                color: Commons.Color.accent
+                font.pixelSize: Style.font.title
+              }
+              DaText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.rate(root.tx)
+                font.pixelSize: Style.font.body
+                font.bold: true
+                opacity: root.online ? 1 : 0.5
+              }
+            }
+          }
+        }
+
+        // ---- 40 s throughput history: down grows up, up mirrors below ----
+        Column {
+          width: parent.width
+          spacing: 2   // the lattice gap, so both halves read as one grid
+
+          CellGrid {
+            width: parent.width
+            cells: 3
+            values: root.scaled(root.rxHistory)
+          }
+          CellGrid {
+            id: upGrid
+            width: parent.width
+            cells: 3
+            values: root.scaled(root.txHistory)
+            transform: Scale { origin.y: upGrid.height / 2; yScale: -1 }
+          }
+        }
+
+        PanelSeparator { width: parent.width }
+
+        PanelSectionHeader { text: strings.t("sinceStart", "Since start") }
+
+        StatRow {
+          glyph: "󰇚"
+          label: strings.t("downloaded", "Downloaded")
+          detail: root.bytes(root.totalRx)
+          fraction: root.totalBoth > 0 ? root.totalRx / root.totalBoth : 0
+        }
+
+        StatRow {
+          glyph: "󰕒"
+          label: strings.t("uploaded", "Uploaded")
+          detail: root.bytes(root.totalTx)
+          fraction: root.totalBoth > 0 ? root.totalTx / root.totalBoth : 0
+        }
+      }
+    }
+  }
+}
