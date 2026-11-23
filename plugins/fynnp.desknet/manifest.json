@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.desknet",
+  "name": "Desk Net",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop network card: interface, address, live down/up rates and history with a little pixel router",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
