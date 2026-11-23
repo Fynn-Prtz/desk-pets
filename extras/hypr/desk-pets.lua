@@ -3,3 +3,4 @@
 hl.layer_rule({ match = { namespace = "^fynnp-desksys$" }, blur = true, ignore_alpha = 0.1 })
 hl.layer_rule({ match = { namespace = "^fynnp-deskaudio$" }, blur = true, ignore_alpha = 0.1 })
 hl.layer_rule({ match = { namespace = "^fynnp-deskgames$" }, blur = true, ignore_alpha = 0.1 })
+hl.layer_rule({ match = { namespace = "^fynnp-desknet$" }, blur = true, ignore_alpha = 0.1 })

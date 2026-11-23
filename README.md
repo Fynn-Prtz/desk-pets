@@ -16,6 +16,7 @@ from tiny Rust helpers that sleep until they're asked or something changes.
 | 🖥️ | **Desk System** (`fynnp.desksys`) | CPU / GPU / RAM / VRAM load, temperatures, **watts** (CPU via RAPL, NVIDIA via NVML, AMD via sysfs), 40 s load history. A pixel computer that dozes, works, sweats and catches fire. |
 | 🎧 | **Desk Audio** (`fynnp.deskaudio`) | Now playing (MPRIS) with art and controls, a block-cell visualizer, output/input device pickers with volume, a per-app mixer. A cat that dances to your music. |
 | 🎮 | **Desk Games** (`fynnp.deskgames`) | Recently played Steam games with covers, one click to launch, live "Playing · 0:42", and the **last session report** (avg FPS, 1 % low, peak temps, kWh). A gamepad critter that mashes buttons and holds up a trophy. |
+| 📡 | **Desk Net** (`fynnp.desknet`) | Default-route interface and IPv4, live ↓/↑ rates, a 40 s mirrored throughput history, totals since the card started. A pixel router that dozes when the line is quiet, flickers its LEDs and passes packets when busy, and flops its antennas when you're offline. |
 | 🌙 | **Cat screensaver** (`fynnp.catsaver`) | A sleeping pixel cat with a swishing tail, breathing, drifting z's, a moon and twinkling stars, on every monitor. |
 | ✋ | **Layout mode** (`fynnp.desklayout`) | **SUPER + ALT + E**: drag the cards anywhere on a snapping grid, nudge them with the arrow keys, send them to another monitor. |
 
@@ -60,7 +61,7 @@ stay-awake is on, or while the screen is locked. Any key, click or mouse move di
 - **The helpers are small Rust programs** (std-only plus `libloading` for NVML):
   `desksys-feed` uses about 0 % CPU, `deskgames-feed` about 2.6 MB RSS and idles in `poll()`, and
   `desk-session` runs once per game for about 10 ms.
-- **When a fullscreen game covers the main monitor**, the system and audio cards escape to an empty
+- **When a fullscreen game covers the main monitor**, the system, audio and net cards escape to an empty
   second monitor, scaled to the same physical size. Otherwise they simply pause.
 
 ## Requirements
@@ -99,9 +100,9 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `corner` | all cards | per card | `top-left`, `top-right`, `bottom-left`, `bottom-right`, `center-left`, `center-right` |
 | `marginX`, `marginY` | all cards | 32 / 58 | Distance from the screen edges (used until you drag the card) |
 | `opacity`, `borderOpacity` | all cards | 0.5 / 0.08 | Card glass and edge |
-| `fallbackMonitor` | system, audio | the other screen | Where to escape to when the home monitor has a fullscreen window |
-| `awayScale` | system, audio | auto | Size there (`0` = same physical size) |
-| `interval` | system | 1000 | Sensor poll interval in ms (only while visible) |
+| `fallbackMonitor` | system, audio, net | the other screen | Where to escape to when the home monitor has a fullscreen window |
+| `awayScale` | system, audio, net | auto | Size there (`0` = same physical size) |
+| `interval` | system, net | 1000 | Sensor / network poll interval in ms (only while visible) |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 11 | Idle seconds, animation fps, pixel size |
@@ -115,6 +116,7 @@ mode to reset it.
 plugins/fynnp.*        Quickshell service plugins (QML), one per card
 shared/                DeskLink.qml (mood bus) and DeskPlace.qml (placement + edit mode), copied verbatim into each card
 helpers/desksys-feed   Rust: CPU/RAM (procfs), RAPL, NVML/amdgpu, one JSON line per stdin request
+helpers/desknet-feed   Rust (std-only): /proc/net/{route,dev,fib_trie} → interface, IPv4, rates, totals per stdin request
 plugins/fynnp.deskgames/helper   Rust: Steam VDF/ACF parser on inotify, prints only on change
 helpers/desk-session   Rust: MangoHud CSV → session JSON + notification, run by a systemd .path unit
 extras/                udev rule, MangoHud config, Hyprland snippets
