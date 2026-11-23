@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "appid": 1091500, "game": "Cyberpunk 2077",
+  "start": 1795471513, "end": 1795471633, "duration_s": 120,
+  "fps_avg": 143.0, "fps_1pct_low": 58.2, "fps_0_1pct_low": 36.5,
+  "frametime_avg_ms": 6.99,
+  "cpu_temp_max": 78, "gpu_temp_max": 71,
+  "cpu_load_avg": 35.0, "gpu_load_avg": 89.5,
+  "cpu_power_avg_w": 64.9, "gpu_power_avg_w": 289.4,
+  "energy_kwh": 0.012,
+  "source": "mangohud", "log": "~/.local/state/fynnp-desk/mangohud-logs/Cyberpunk2077.exe_2026-11-23_23-10-00.csv"
+}

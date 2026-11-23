@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.desksys",
+  "name": "Desk System",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop system card: CPU, GPU, memory, temperatures and power draw with a little pixel buddy",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}

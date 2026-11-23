@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.deskaudio",
+  "name": "Desk Audio",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop audio card: now playing, visualizer, output and input picker with a little dancing cat",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}

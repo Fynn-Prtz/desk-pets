@@ -1,0 +1,16 @@
+{
+  "idle": "Idle",
+  "chilling": "Chilling",
+  "working": "Working",
+  "underLoad": "Under load",
+  "maxed": "Maxed out",
+  "hot": "Running hot",
+  "waiting": "Waking up…",
+  "cpu": "CPU",
+  "gpu": "GPU",
+  "memory": "Memory",
+  "vram": "VRAM",
+  "load": "Load",
+  "gpuOnly": "GPU only",
+  "noGpu": "No GPU stats"
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Turn finished MangoHud logs into game session reports (fynnp desk)
+# Also runs once at login to catch logs that finished while the watcher was down.
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/desk-session
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

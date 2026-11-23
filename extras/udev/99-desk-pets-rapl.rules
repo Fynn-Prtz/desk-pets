@@ -1,0 +1,2 @@
+# Let unprivileged users read the CPU package energy counter (used by pixmon for CPU watts).
+ACTION=="add", SUBSYSTEM=="powercap", KERNEL=="intel-rapl:0", RUN+="/usr/bin/chmod 0444 /sys%p/energy_uj"

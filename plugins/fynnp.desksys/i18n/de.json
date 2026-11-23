@@ -1,0 +1,16 @@
+{
+  "idle": "Leerlauf",
+  "chilling": "Entspannt",
+  "working": "Am Arbeiten",
+  "underLoad": "Unter Last",
+  "maxed": "Volle Auslastung",
+  "hot": "Wird heiß",
+  "waiting": "Wacht auf…",
+  "cpu": "CPU",
+  "gpu": "GPU",
+  "memory": "Arbeitsspeicher",
+  "vram": "VRAM",
+  "load": "Auslastung",
+  "gpuOnly": "nur GPU",
+  "noGpu": "Keine GPU-Werte"
+}

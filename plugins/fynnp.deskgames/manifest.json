@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.deskgames",
+  "name": "Desk Games",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop game card: recently played Steam games to launch, the last session's numbers and a little pixel gamepad buddy",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}

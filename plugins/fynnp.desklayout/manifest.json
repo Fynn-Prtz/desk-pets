@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.desklayout",
+  "name": "Desk Layout",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Edit mode for the desk cards: drag them anywhere on a snapping grid (omarchy-shell desklayout toggle)",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}

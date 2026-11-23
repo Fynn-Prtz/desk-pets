@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch MangoHud logs for finished game sessions (fynnp desk)
+
+[Path]
+# PathChanged = IN_CREATE/IN_CLOSE_WRITE/IN_MOVED_*/IN_DELETE/IN_ATTRIB, *not* IN_MODIFY:
+# MangoHud's per-row appends during a game wake nothing; the game closing its log does.
+PathChanged=%h/.local/state/fynnp-desk/mangohud-logs
+MakeDirectory=yes
+Unit=desk-session.service
+
+[Install]
+WantedBy=default.target

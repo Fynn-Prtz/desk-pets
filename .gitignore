@@ -1,0 +1,11 @@
+# build output
+target/
+**/target/
+# built helper binaries (install.sh builds them)
+plugins/fynnp.deskgames/bin/
+helpers/desk-session/bin/
+# editor / OS
+*.swp
+.DS_Store
+# local Claude Code state (the shared skill in .claude/skills IS tracked)
+.claude/settings.local.json

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.catsaver",
+  "name": "Cat Saver",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Pixel-art screensaver: a cat curled up asleep under a crescent moon",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
