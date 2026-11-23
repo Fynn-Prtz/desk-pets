@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # desk-pets installer for Omarchy (Hyprland + omarchy-shell / Quickshell).
 #
-#   ./install.sh                 core: system, memory, audio, games cards, layout mode, cat screensaver plugin
+#   ./install.sh                 core: system, memory, disk, audio, games cards, layout mode, cat screensaver plugin
 #   ./install.sh --sessions      + MangoHud game-session reports (MangoHud config, Steam launcher, systemd units)
 #   ./install.sh --rapl          + CPU package watts (udev rule, needs sudo; see README for the trade-off)
 #   ./install.sh --screensaver   + replace Omarchy's terminal screensaver with the pixel cat
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGINS=(fynnp.desksys fynnp.deskmem fynnp.deskaudio fynnp.deskgames fynnp.desklayout fynnp.catsaver)
+PLUGINS=(fynnp.desksys fynnp.deskmem fynnp.deskdisk fynnp.deskaudio fynnp.deskgames fynnp.desklayout fynnp.catsaver)
 PLUGIN_DIR="$HOME/.config/omarchy/plugins"
 SHELL_JSON="$HOME/.config/omarchy/shell.json"
 HYPR="$HOME/.config/hypr"
@@ -58,7 +58,7 @@ if ((uninstall)); then
     rm -f "$HOME/.config/systemd/user/desk-session."{path,service}
     systemctl --user daemon-reload
   fi
-  rm -f "$BIN/desksys-feed" "$BIN/deskmem-feed" "$BIN/desk-session"
+  rm -f "$BIN/desksys-feed" "$BIN/deskmem-feed" "$BIN/deskdisk-feed" "$BIN/desk-session"
   say "done. Hyprland snippets, MangoHud config and the Steam launcher override were left in place;"
   say "remove the 'desk-pets' lines in $HYPR/looknfeel.lua and $HYPR/bindings.lua by hand if you like."
   omarchy restart shell >/dev/null 2>&1 || true
@@ -75,6 +75,7 @@ build() { # <crate dir> <binary name> <install path>
 }
 build "$REPO/helpers/desksys-feed" desksys-feed "$BIN/desksys-feed"
 build "$REPO/helpers/deskmem-feed" deskmem-feed "$BIN/deskmem-feed"
+build "$REPO/helpers/deskdisk-feed" deskdisk-feed "$BIN/deskdisk-feed"
 build "$REPO/plugins/fynnp.deskgames/helper" deskgames-feed "$REPO/plugins/fynnp.deskgames/bin/deskgames-feed"
 
 # ---------------------------------------------------------------- plugins
@@ -96,6 +97,7 @@ backup "$SHELL_JSON"
 defaults='[
   { "id": "fynnp.desksys",    "corner": "top-right",    "marginX": 32, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000 },
   { "id": "fynnp.deskmem",    "corner": "top-left",     "marginX": 32, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "interval": 3000 },
+  { "id": "fynnp.deskdisk",   "corner": "center-left",  "marginX": 32, "marginY": 0,  "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000, "rows": 4 },
   { "id": "fynnp.deskaudio",  "corner": "bottom-right", "marginX": 32, "marginY": 32, "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.deskgames",  "corner": "center-right", "marginX": 32, "marginY": 0,  "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.desklayout", "grid": 24 },
@@ -119,7 +121,7 @@ append_once() { # <file> <marker> <text>
   printf '\n%s\n' "$3" >> "$1"
 }
 say "adding blur rules and the SUPER+ALT+E layout hotkey"
-for ns in desksys deskmem deskaudio deskgames; do
+for ns in desksys deskmem deskdisk deskaudio deskgames; do
   append_once "$HYPR/looknfeel.lua" "^fynnp-$ns\$" \
     "-- desk-pets: frosted glass behind fynnp.$ns
 hl.layer_rule({ match = { namespace = \"^fynnp-$ns\$\" }, blur = true, ignore_alpha = 0.1 })"

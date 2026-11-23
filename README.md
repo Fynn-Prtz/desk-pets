@@ -15,6 +15,7 @@ from tiny Rust helpers that sleep until they're asked or something changes.
 |---|---|---|
 | 🖥️ | **Desk System** (`fynnp.desksys`) | CPU / GPU / RAM / VRAM load, temperatures, **watts** (CPU via RAPL, NVIDIA via NVML, AMD via sysfs), 40 s load history. A pixel computer that dozes, works, sweats and catches fire. |
 | 🥧 | **Desk Memory** (`fynnp.deskmem`) | What's eating your RAM: a pixel-art pie of the six biggest apps (browser renderers, Electron and Steam helpers folded into their app), the rest and what's free, with a legend. Turns urgent above 90 %. |
+| 💾 | **Desk Disk** (`fynnp.deskdisk`) | Every real filesystem (btrfs subvolumes merged) with a usage meter and free space, root usage, read/write rates and a 40 s mirrored I/O history. A pixel floppy that dozes, slides its shutter when the disks work hard and sweats when a drive is over 90 % full. |
 | 🎧 | **Desk Audio** (`fynnp.deskaudio`) | Now playing (MPRIS) with art and controls, a block-cell visualizer, output/input device pickers with volume, a per-app mixer. A cat that dances to your music. |
 | 🎮 | **Desk Games** (`fynnp.deskgames`) | Recently played Steam games with covers, one click to launch, live "Playing · 0:42", and the **last session report** (avg FPS, 1 % low, peak temps, kWh). A gamepad critter that mashes buttons and holds up a trophy. |
 | 🌙 | **Cat screensaver** (`fynnp.catsaver`) | A sleeping pixel cat with a swishing tail, breathing, drifting z's, a moon and twinkling stars, on every monitor. |
@@ -102,7 +103,8 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `opacity`, `borderOpacity` | all cards | 0.5 / 0.08 | Card glass and edge |
 | `fallbackMonitor` | system, memory, audio | the other screen | Where to escape to when the home monitor has a fullscreen window |
 | `awayScale` | system, memory, audio | auto | Size there (`0` = same physical size) |
-| `interval` | system, memory | 1000 / 3000 | Poll interval in ms (only while visible) |
+| `interval` | system, memory, disk | 1000 / 3000 / 1000 | Poll interval in ms (only while visible) |
+| `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 11 | Idle seconds, animation fps, pixel size |
@@ -117,6 +119,7 @@ plugins/fynnp.*        Quickshell service plugins (QML), one per card
 shared/                DeskLink.qml (mood bus) and DeskPlace.qml (placement + edit mode), copied verbatim into each card
 helpers/desksys-feed   Rust: CPU/RAM (procfs), RAPL, NVML/amdgpu, one JSON line per stdin request
 helpers/deskmem-feed   Rust (std-only): per-app private RAM from /proc, grouped by app, one JSON line per stdin request
+helpers/deskdisk-feed  Rust, std only: mountinfo + statvfs usage, diskstats I/O rates, same protocol
 plugins/fynnp.deskgames/helper   Rust: Steam VDF/ACF parser on inotify, prints only on change
 helpers/desk-session   Rust: MangoHud CSV → session JSON + notification, run by a systemd .path unit
 extras/                udev rule, MangoHud config, Hyprland snippets

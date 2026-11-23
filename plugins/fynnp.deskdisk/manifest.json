@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.deskdisk",
+  "name": "Desk Disk",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop disk card: filesystem usage, read/write rates and I/O history with a little pixel floppy",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
