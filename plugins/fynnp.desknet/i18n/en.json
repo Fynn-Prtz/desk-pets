@@ -1,0 +1,8 @@
+{
+  "waiting": "Waking up…",
+  "offline": "Offline",
+  "noAddress": "no IPv4",
+  "sinceStart": "Since start",
+  "downloaded": "Downloaded",
+  "uploaded": "Uploaded"
+}

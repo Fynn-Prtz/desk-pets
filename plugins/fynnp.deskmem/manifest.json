@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.deskmem",
+  "name": "Desk Memory",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop memory card: a pixel-art pie of what's eating your RAM, per app",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
