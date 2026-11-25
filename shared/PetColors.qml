@@ -18,7 +18,7 @@ import qs.Commons as Commons
 //   t shadow    foreground @ 8% (floor shadow)
 //
 // Usage:  PetColors { id: colors }
-//         palette: colors.with({ "l": someLedColor })   // override / add keys
+//         palette: colors.extend({ "l": someLedColor })   // override / add keys
 QtObject {
   id: pc
 
@@ -48,7 +48,7 @@ QtObject {
 
   // A copy of the base palette with some keys replaced or added. Bind it to a
   // property so the object is rebuilt only when an input actually changes.
-  function with(extra) {
+  function extend(extra) {
     var out = {}
     for (var k in base) out[k] = base[k]
     for (var j in extra) out[j] = extra[j]
