@@ -341,17 +341,20 @@ Item {
     name: "gamer"
     mood: root.mood
   }
-  readonly property bool peerSweat: ["load", "maxed", "hot"].indexOf(link.peers.buddy) >= 0
+  // The system buddy's load makes the player struggle: 1 under load, 2 maxed / hot.
+  readonly property int peerStrain: link.peers.buddy === "load" ? 1
+    : (link.peers.buddy === "maxed" || link.peers.buddy === "hot") ? 2 : 0
   readonly property bool peerBop: link.peers.cat === "dance"
 
-  // Pixel buddy clock: 4 fps, only while visible and something moves.
+  // Pet clock (seconds): 4 fps while visible and something moves, 8 fps
+  // while a touch reaction / drag / landing plays. Ready and report rest.
   property real clock: 0
   Timer {
-    interval: 250
+    interval: gamer.fast ? 125 : 250
     repeat: true
     running: root.active && (root.mood === "idle" || root.mood === "launching" || root.mood === "playing"
-      || root.peerBop || (root.peerSweat && root.mood !== "report"))
-    onTriggered: root.clock += 0.25
+      || gamer.moving)
+    onTriggered: root.clock += interval / 1000
   }
 
   // ---------- text ----------
@@ -461,11 +464,14 @@ Item {
 
           PixelGamer {
             id: gamer
-            px: 4
+            px: 2
             mood: root.mood
-            sweat: root.peerSweat
+            strain: root.peerStrain
             bop: root.peerBop
             clock: root.clock
+            active: root.active
+            place: place
+            window: win.contentItem
           }
 
           Column {

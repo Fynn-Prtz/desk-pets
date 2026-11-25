@@ -44,7 +44,7 @@ Item {
   property real cardWidth: 360          // unscaled card size
   property real cardHeight: 200
   // Cards that publish their rect for magnetic snapping.
-  property var peerIds: ["fynnp.desksys", "fynnp.deskaudio", "fynnp.deskgames"]
+  property var peerIds: ["fynnp.desksys", "fynnp.deskmem", "fynnp.deskdisk", "fynnp.deskaudio", "fynnp.deskgames", "fynnp.desknet"]
 
   // ---------- outputs ----------
   readonly property bool editing: editOn && ready
