@@ -8,7 +8,7 @@ struggle and react, so a pet on one card feels like it belongs with all the othe
 | file | what |
 |---|---|
 | `PixelSprite.qml` | string rows + palette → one Canvas, repaints only on change, merges runs |
-| `PetColors.qml` | the shading palette from the live theme (keys below), `with({…})`, `fx(colour)` |
+| `PetColors.qml` | the shading palette from the live theme (keys below), `extend({…})`, `fx(colour)` |
 | `PetFx.js` | shared effect sprites: hearts, sweat, z's, notes, sparkle, anger, `!`, `?`, spiral, puff, dust, effort lines, bolt, flame |
 | `PetTouch.qml` | click / hold / hover / layout-drag input → `reaction`, `look`, `lean`, `landing`, `busy`, `maskRect` |
 | `DeskPlace.qml`, `DeskLink.qml` | placement/edit mode and the mood bus (unchanged contracts) |
@@ -29,7 +29,7 @@ Preview tool: `tools/pet-preview.js` (contact sheets + GIFs with the live theme;
 `o` outline (fg) · `b` body (accent) · `h` highlight (top light) · `n` shade (lower side) ·
 `d` dark (stripes, details) · `w` light fur/belly · `l` lightest · `p` blush/pink · `e` ink (eyes,
 mouth) · `x` eye glint · `s` screen · `g` lit screen glow · `f` face on a screen · `r` urgent ·
-`k` soft urgent · `t` floor shadow. Use only these (plus per-pet overrides via `with()` for LEDs etc.)
+`k` soft urgent · `t` floor shadow. Use only these (plus per-pet overrides via `extend()` for LEDs etc.)
 so every theme works. Reference for shading quality: the screensaver cat (`plugins/fynnp.catsaver/Sprites.js`).
 
 ## Cute rules
