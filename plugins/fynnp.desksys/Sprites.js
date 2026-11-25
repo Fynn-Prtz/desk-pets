@@ -86,6 +86,9 @@ function layer(g, mask, fill) {
   return inside
 }
 
+// Bounds-safe "is this cell inside the layer mask" for fill functions.
+function IN(inside, x, y) { return y >= 0 && y < H && x >= 0 && x < W && inside[y][x] }
+
 function put(g, x, y, c) { if (y >= 0 && y < H && x >= 0 && x < W) g[y][x] = c }
 function putIf(g, x, y, c, only) { if (y >= 0 && y < H && x >= 0 && x < W && only.indexOf(g[y][x]) >= 0) g[y][x] = c }
 
@@ -308,8 +311,8 @@ function build(o) {
     return false
   }, function(x, y, inside) {
     if (inFoot(x, y, 0) || inFoot(x, y, 1)) {
-      if (!inside[y - 1][x]) return "h"
-      return y + 1 < H && !inside[y + 1][x] ? "n" : "b"
+      if (!IN(inside, x, y - 1)) return "h"
+      return !IN(inside, x, y + 1) ? "n" : "b"
     }
     return y <= my1 + 1 ? "d" : "n"
   })
@@ -349,16 +352,16 @@ function build(o) {
 
   // CRT back hump peeking over the top, with vent slits.
   layer(g, function(x, y) { return inRRect(x, y, mx0 + 5, my0 - 3, mx1 - 5, my0 + 2, 2.5) }, function(x, y, inside) {
-    if (!inside[y - 1][x]) return "d"
+    if (!IN(inside, x, y - 1)) return "d"
     return (y === my0 - 2 && x % 3 === 0) ? "e" : "n"
   })
 
   // Monitor
   var R = 4
   layer(g, function(x, y) { return inRRect(x, y, mx0, my0, mx1, my1, R) }, function(x, y, inside) {
-    if (!inside[y - 1][x]) return "h"
-    if (y >= my1 - 1 || !inside[y + 2][x]) return "n"
-    if (!inside[y][x + 1]) return "n"
+    if (!IN(inside, x, y - 1)) return "h"
+    if (y >= my1 - 1 || !IN(inside, x, y + 2)) return "n"
+    if (!IN(inside, x + 1, y)) return "n"
     return "b"
   })
   // gloss on the top-left corner

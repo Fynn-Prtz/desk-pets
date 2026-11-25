@@ -1,15 +1,16 @@
 .pragma library
 
-// Desk Games pet: a gamepad critter. Its body is the controller (wide top,
-// two grips that end in stubby feet), shoulder bumpers for ears, a d-pad and
-// four face buttons as features, ink eyes with glints between them, mitten
-// arms that can reach its own buttons, and the USB cable as a curly sprout.
-// Drawn at px 2 on the shared 44x38 pet canvas (docs/PETS.md), built from
-// shapes and memoised by pose key like the desksys buddy.
+// Desk Games pet: a little axolotl gamer. Big round head with pink frilly
+// gills, chubby body with a light belly, a tail, tiny mitten arms holding a
+// small controller, and a headset (band, ear cups, mic) over its head.
+// Drawn at px 2 on the shared 44x38 pet canvas (docs/PETS.md); built from
+// shapes (ellipses, rounded rects, thick polylines) with top-lit shading and
+// memoised per pose key, like the screensaver cat.
 //
-// Palette keys (PetColors): o outline, b body, h highlight, n shade, d dark,
-// w light, l lightest, p blush/pink, e ink, x glint, r urgent, k soft urgent,
-// t shadow. scene(state, PetFx) -> body rows + offset + up to six effects.
+// Palette keys (PetColors): o outline, b body, h highlight, n shade, d dark
+// (headset, pad, spots), w belly, l lightest, p gills / blush, k gill shade,
+// e ink, x glint / lit button, r urgent, t shadow.
+// scene(state, PetFx) -> body rows + offset + floor shadow + up to six effects.
 
 var W = 44
 var H = 36
@@ -82,6 +83,9 @@ function layer(g, mask, fill) {
   return inside
 }
 
+// Bounds-safe "is this cell inside the layer mask" for fill functions.
+function IN(inside, x, y) { return y >= 0 && y < H && x >= 0 && x < W && inside[y][x] }
+
 function put(g, x, y, c) { if (y >= 0 && y < H && x >= 0 && x < W) g[y][x] = c }
 function putIf(g, x, y, c, only) { if (y >= 0 && y < H && x >= 0 && x < W && only.indexOf(g[y][x]) >= 0) g[y][x] = c }
 
@@ -105,6 +109,8 @@ function mirrorRows(rows) {
 //
 // Ink eyes straight on the body. "E" ink, "X" glint, "P" blush.
 
+// ---------------------------------------------------------------- face
+
 var EYES = {
   open:    [".EE.", "EXEE", "EEEE", "EEEE", ".EE."],
   half:    ["....", "EEEE", "EXEE", ".EE.", "...."],
@@ -125,7 +131,6 @@ var EYES = {
 var BROWS = {
   angry:  ["EE..", "..EE"],
   worry:  ["..EE", "EE.."],
-  strain: ["EEE.", "...E"],
   focus:  ["....", "EEE."]
 }
 
@@ -137,7 +142,7 @@ var MOUTHS = {
   flat:   ["EEEE"],
   o:      [".EE.", "E..E", ".EE."],
   big:    [".EEEE.", "EEEEEE", ".EPPE."],
-  grit:   ["EEEEEEEE", "EXEXXEXE", "EEEEEEEE"],
+  grit:   ["EEEEEE", "EXXXXE", "EEEEEE"],
   wobble: [".E..E.", "E.EE.E"],
   pout:   [".EE.", "E..E"],
   tongue: ["EEEE..", ".EEPP.", "...PP."],
@@ -145,13 +150,12 @@ var MOUTHS = {
   tiny:   ["EE"]
 }
 
-function drawFace(g, cx, top, face, mouthDy) {
+function drawFace(g, cx, top, face) {
   var map = { "E": "e", "X": "x", "P": "p" }
   var eyes = face.eyes, lx = face.lookX || 0, ly = face.lookY || 0
-  var e = EYES[eyes] || EYES.open, eR = e
-  if (/L$/.test(eyes)) eR = mirrorRows(e)
+  var e = EYES[eyes] || EYES.open, eR = /L$/.test(eyes) ? mirrorRows(e) : e
   var ey = top + ly
-  var lxp = cx - 3 - e[0].length + lx, rxp = cx + 3 + lx
+  var lxp = cx - 5 - e[0].length + lx, rxp = cx + 5 + lx
   stamp(g, lxp, ey, e, map)
   stamp(g, rxp, ey, eR, map)
   if (face.brows && BROWS[face.brows]) {
@@ -159,155 +163,234 @@ function drawFace(g, cx, top, face, mouthDy) {
     stamp(g, lxp, ey - 2, b, map)
     stamp(g, rxp, ey - 2, mirrorRows(b), map)
   }
-  if (face.blush) {
-    stamp(g, cx - 9, top + 5, ["PPP"], map)
-    stamp(g, cx + 6, top + 5, ["PPP"], map)
+  if (face.blush !== false) {
+    stamp(g, cx - 10, top + 5, ["PPP"], map)
+    stamp(g, cx + 7, top + 5, ["PPP"], map)
   }
   var m = MOUTHS[face.mouth] || []
-  if (m.length) stamp(g, cx - Math.floor(m[0].length / 2), top + 6 - (mouthDy || 0), m, map)
+  if (m.length) stamp(g, cx - Math.floor(m[0].length / 2), top + 5, m, map)
 }
 
-// Trophy (silver: light accent tones), held up in the right hand.
 var TROPHY = [
-  "..ooooooo..",
-  "oooxwwwnooo",
-  "o.olwwwno.o",
-  ".ooolwnooo.",
-  "...oowno...",
-  "....ono....",
-  "....ono....",
-  "...ooooo...",
-  "..onnnnno..",
-  "..ooooooo.."
+  ".ooooooo.",
+  "oxlwwwwno",
+  "oxlwwwwno",
+  ".oxlwwno.",
+  "..oowoo..",
+  "...ono...",
+  "...ono...",
+  "..ooooo..",
+  ".onnnnno.",
+  ".ooooooo."
 ]
 
 // ---------------------------------------------------------------- body
 //
-// opts: face {eyes, mouth, brows, blush, lookX, lookY}, lift, squash,
-//       arms pose, legs pose, cable pose, lean, press ("" | "L" | "R" | "B"),
-//       lit (which face button flashes: "" | "t" | "r" | "b" | "l"), trophy
+// opts: face, lift (head/body raised), squash 0..2, arms pose, pad ("hold" |
+//   "raised" | "floor" | "none"), press ("" | "L" | "R"), lit (button that
+//   flashes: "" | "a" | "b"), gills pose, headset ("on" | "neck" | "tilt"),
+//   tail pose, legs ("stand" | "dangleA/B" | "stompL/R" | "tuck"), lean, trophy
 
-var ARM_POSES = {
-  rest:   [[3.0, 26.5], [40.0, 26.5]],
-  tuck:   [[5.0, 27.0], [38.0, 27.0]],
-  out:    [[0.8, 22.0], [42.2, 22.0]],
-  up:     [[2.0, 11.5], [41.0, 11.5]],
-  high:   [[6.0, 5.5], [37.0, 5.5]],
-  hips:   [[3.5, 24.5], [39.5, 24.5]],
-  mashA:  [[9.5, 17.0], [34.0, 19.0]],
-  mashB:  [[9.5, 19.0], [34.0, 16.5]],
-  pressR: [[3.0, 26.5], [34.0, 16.5]],
-  flailA: [[1.0, 10.0], [42.0, 17.0]],
-  flailB: [[1.0, 17.0], [42.0, 10.0]],
-  danceA: [[1.5, 12.0], [41.0, 26.0]],
-  danceB: [[2.0, 26.0], [41.5, 12.0]]
+var ARMS = {
+  // [left hand, right hand]
+  hold:   [[15.5, 26.0], [28.0, 26.0]],
+  mashA:  [[15.5, 27.0], [28.0, 26.0]],
+  mashB:  [[15.5, 26.0], [28.0, 27.0]],
+  rest:   [[11.5, 27.0], [32.0, 27.0]],
+  hips:   [[12.0, 25.5], [31.5, 25.5]],
+  out:    [[7.5, 24.0], [36.0, 24.0]],
+  up:     [[7.0, 15.0], [36.5, 15.0]],
+  raise:  [[14.5, 3.5], [29.0, 3.5]],
+  ear:    [[10.0, 15.5], [28.0, 26.0]],
+  trophy: [[15.5, 28.0], [28.0, 28.0]],
+  flailA: [[6.5, 17.0], [37.5, 23.0]],
+  flailB: [[6.5, 23.0], [37.5, 17.0]],
+  danceA: [[7.0, 17.0], [33.0, 27.0]],
+  danceB: [[10.5, 27.0], [36.5, 17.0]],
+  tuck:   [[16.0, 28.5], [27.5, 28.5]]
+}
+
+// Gill branches of the left side: [root, mid, tip]; the right side mirrors.
+var GILLS = {
+  rest:  [[[13.5, 8.5], [10.0, 5.5], [7.0, 3.5]], [[11.5, 11.5], [7.5, 9.5], [3.5, 8.5]], [[11.0, 15.0], [7.0, 14.5], [3.5, 15.5]]],
+  wigA:  [[[13.5, 8.5], [10.5, 5.0], [8.0, 2.5]], [[11.5, 11.5], [7.5, 8.5], [4.0, 6.5]], [[11.0, 15.0], [7.0, 13.5], [3.5, 13.5]]],
+  wigB:  [[[13.5, 8.5], [9.5, 6.5], [6.0, 5.5]], [[11.5, 11.5], [7.5, 10.5], [3.5, 11.0]], [[11.0, 15.0], [7.5, 16.0], [4.5, 18.0]]],
+  flare: [[[13.5, 8.5], [10.0, 4.0], [7.5, 1.0]], [[11.5, 11.5], [6.5, 8.5], [2.0, 6.5]], [[11.0, 15.0], [6.0, 14.5], [1.5, 15.0]]],
+  droop: [[[13.5, 9.5], [9.5, 9.5], [6.5, 11.5]], [[11.5, 12.5], [7.5, 13.5], [5.0, 16.0]], [[11.5, 16.0], [8.0, 17.5], [6.5, 20.0]]],
+  back:  [[[13.5, 8.5], [11.5, 4.5], [10.5, 1.5]], [[11.5, 11.5], [8.5, 7.5], [7.0, 4.5]], [[11.0, 15.0], [7.5, 12.5], [5.5, 10.5]]]
+}
+
+var TAILS = {
+  rest:  [[28.0, 30.0], [33.0, 31.5], [37.5, 30.0], [40.0, 27.0]],
+  wagA:  [[28.0, 30.0], [33.0, 31.0], [37.5, 28.5], [39.0, 25.0]],
+  wagB:  [[28.0, 30.0], [33.0, 32.0], [38.0, 31.5], [41.5, 29.5]],
+  curl:  [[28.0, 30.0], [32.5, 32.5], [28.0, 34.0], [20.0, 34.0]],
+  hang:  [[27.0, 30.0], [30.0, 33.0], [31.5, 35.5]]
+}
+
+function mirrorPts(pts) {
+  var out = []
+  for (var i = 0; i < pts.length; i++) out.push([43 - pts[i][0], pts[i][1]])
+  return out
 }
 
 function build(o) {
   var g = grid()
   var sq = o.squash || 0, lift = o.lift || 0
-  var bx0 = 6 - sq, bx1 = 37 + sq
-  var by0 = 13 - lift + sq * 3, by1 = 24 - lift + Math.min(sq, 1)
-  var gripRy = 5.6 - sq * 1.2, gripCy = 25.6 - lift + sq * 0.8
-  var gl = [11.0 - sq, gripCy], gr = [32.0 + sq, gripCy]
-  function inBody(x, y) {
-    return inRRect(x, y, bx0, by0, bx1, by1, 5) || inEllipse(x, y, gl[0], gl[1], 5.3, gripRy) || inEllipse(x, y, gr[0], gr[1], 5.3, gripRy)
-  }
+  var hcx = 21.5, hcy = 14.5 - lift + sq * 3, hrx = 11.3 + sq * 0.8, hry = 8.6 - sq * 1.2
+  var bcx = 21.5, bcy = 27.0 + sq * 0.6, brx = 10.2 + sq * 1.2, bry = 6.4 - sq * 0.7
+  var dyHead = hcy - 14.5
 
-  // Cable sprout from the top (behind): a curl that wags, droops when asleep.
-  var cable = o.cable || "rest", cx0 = 21.5, cy0 = by0
-  var wires = {
-    rest:   [[cx0, cy0], [21.5, 10.0], [20.5, 7.5], [18.5, 5.8], [16.0, 5.2]],
-    wagA:   [[cx0, cy0], [21.5, 10.0], [21.0, 7.0], [19.5, 4.8], [17.5, 3.6]],
-    wagB:   [[cx0, cy0], [21.5, 10.0], [20.0, 8.0], [17.5, 7.0], [15.0, 7.2]],
-    droop:  [[cx0, cy0], [21.0, cy0 - 2.5], [18.5, cy0 - 3.5], [16.0, cy0 - 3.0]],
-    swingA: [[cx0, cy0], [20.5, 9.0], [18.0, 6.5], [15.0, 5.0]],
-    swingB: [[cx0, cy0], [22.5, 9.0], [25.0, 6.5], [28.0, 5.0]]
+  // Tail (behind): a thick tapering polyline with a lighter fin on top.
+  var tail = TAILS[o.tail] || TAILS.rest
+  function tailR(x, y) {
+    var d = segDist(tail, x, y)
+    // taper: thicker at the base
+    var bx = tail[0][0], by = tail[0][1], dd = Math.sqrt((x + 0.5 - bx) * (x + 0.5 - bx) + (y + 0.5 - by) * (y + 0.5 - by))
+    return d < Math.max(0.7, 2.0 - dd * 0.12)
   }
-  var wire = wires[cable] || wires.rest
-  for (var wy = 0; wy < by0; wy++)
-    for (var wx = 0; wx < W; wx++)
-      if (segDist(wire, wx, wy) < 0.6) g[wy][wx] = "o"
-  var tip = wire[wire.length - 1]
-  layer(g, function(x, y) { return inDisc(x, y, tip[0], tip[1], 1.1) }, "w")
+  layer(g, tailR, function(x, y, inside) { return !IN(inside, x, y - 1) ? "h" : (!IN(inside, x, y + 1) ? "n" : "b") })
 
-  // Feet under the grips (hidden when tucked).
+  // Gills (behind the head): three frilly pink branches per side.
+  var gs = GILLS[o.gills] || GILLS.rest
+  var branches = []
+  for (var i = 0; i < 3; i++) {
+    var L = [], R = []
+    for (var j = 0; j < 3; j++) L.push([gs[i][j][0] - sq * 0.8, gs[i][j][1] + dyHead])
+    branches.push(L); branches.push(mirrorPts(L))
+  }
+  function inGill(x, y) {
+    for (var b = 0; b < branches.length; b++) {
+      var br = branches[b]
+      if (segDist(br, x, y) < 0.95) return true
+      // frills: little bumps along the outer half and a round tip
+      if (inDisc(x, y, br[2][0], br[2][1], 1.35)) return true
+      var mx = (br[1][0] + br[2][0]) / 2, my = (br[1][1] + br[2][1]) / 2
+      if (inDisc(x, y, mx, my - 0.6, 1.15)) return true
+    }
+    return false
+  }
+  layer(g, inGill, function(x, y, inside) {
+    // pink, with a darker underside only where the gill is thick
+    return (!IN(inside, x, y + 1) && IN(inside, x, y - 1) && IN(inside, x, y - 2)) ? "k" : "p"
+  })
+  // a light streak on each branch's mid point
+  for (var b2 = 0; b2 < branches.length; b2++) putIf(g, Math.floor(branches[b2][1][0]), Math.floor(branches[b2][1][1]) - 0, "l", "p")
+
+  // Feet
   var legs = o.legs || "stand"
-  var fl = [[10.5, 32.3], [32.5, 32.3]]
-  if (legs === "stompL") fl = [[10.5, 30.6], [32.5, 32.3]]
-  if (legs === "stompR") fl = [[10.5, 32.3], [32.5, 30.6]]
-  if (legs === "wide") fl = [[8.5, 32.3], [34.5, 32.3]]
-  if (legs === "dangleA") fl = [[9.5, 33.0], [33.5, 33.0]]
-  if (legs === "dangleB") fl = [[11.5, 33.0], [31.5, 33.0]]
-  if (legs !== "tuck") {
-    layer(g, function(x, y) {
-      for (var i = 0; i < 2; i++) if (inEllipse(x, y, fl[i][0] + (i ? 0.5 : -0.5), fl[i][1], 3.0, 1.6)) return true
-      return false
-    }, function(x, y, inside) { return !inside[y - 1][x] ? "h" : (y + 1 < H && !inside[y + 1][x] ? "n" : "b") })
-  }
+  var fy = 33.0
+  var feet = [[16.5, fy], [27.0, fy]]
+  if (legs === "stompL") feet = [[16.5, fy - 1.6], [27.0, fy]]
+  if (legs === "stompR") feet = [[16.5, fy], [27.0, fy - 1.6]]
+  if (legs === "dangleA") feet = [[15.5, fy + 1.2], [28.0, fy + 0.6]]
+  if (legs === "dangleB") feet = [[17.5, fy + 0.6], [26.0, fy + 1.2]]
+  if (legs !== "tuck") layer(g, function(x, y) {
+    return inEllipse(x, y, feet[0][0], feet[0][1], 2.4, 1.4) || inEllipse(x, y, feet[1][0], feet[1][1], 2.4, 1.4)
+  }, function(x, y, inside) { return !IN(inside, x, y - 1) ? "b" : "n" })
 
-  // Shoulder bumpers (ears).
-  layer(g, function(x, y) {
-    return inRRect(x, y, bx0 + 2, by0 - 3, bx0 + 9, by0 + 1, 1.6) || inRRect(x, y, bx1 - 9, by0 - 3, bx1 - 2, by0 + 1, 1.6)
-  }, function(x, y, inside) { return !inside[y - 1][x] ? "n" : "d" })
-
-  // Arms behind the body unless they reach the controls.
-  var pose = ARM_POSES[o.arms] || ARM_POSES.rest
-  var sh = [[bx0 + 1.0, 21.0 - lift + sq], [bx1, 21.0 - lift + sq]]
+  // Arms behind the body (only for poses away from the front)
+  var pose = ARMS[o.arms] || ARMS.hold
+  var sh = [[12.5, 23.5 + sq], [30.5, 23.5 + sq]]
   var arms = [[sh[0], pose[0]], [sh[1], pose[1]]]
-  if (sq > 1) arms = [[sh[0], [bx0 - 3.5, 26.0]], [sh[1], [bx1 + 4.5, 26.0]]]
-  var front = [pose[0][0] > bx0 + 1 && pose[0][1] > by0, pose[1][0] < bx1 - 1 && pose[1][1] > by0]
-  function inHand(i, x, y) { return inDisc(x, y, arms[i][1][0], arms[i][1][1], 1.8) }
-  function armLayer(which) {
-    layer(g, function(x, y) {
+  if (sq > 1) arms = [[sh[0], [8.5, 27.0]], [sh[1], [35.0, 27.0]]]
+  function inHand(i, x, y) { return inDisc(x, y, arms[i][1][0], arms[i][1][1], 1.7) }
+  function armMask(which) {
+    return function(x, y) {
       for (var i = 0; i < 2; i++) {
         if (!which[i]) continue
-        if (segDist(arms[i], x, y) < 1.05 || inHand(i, x, y)) return true
+        if (segDist(arms[i], x, y) < 1.0 || inHand(i, x, y)) return true
       }
       return false
-    }, function(x, y) {
-      for (var i = 0; i < 2; i++) if (which[i] && inHand(i, x, y)) return inHand(i, x, y - 1) ? (inHand(i, x, y + 1) ? "b" : "n") : "h"
-      return "n"
-    })
+    }
   }
-  armLayer([!front[0], !front[1]])
+  function armFill(x, y, inside) { return !IN(inside, x, y - 1) ? "h" : (!IN(inside, x, y + 1) ? "n" : "b") }
+  // a hand in front of the belly / pad is drawn after the body
+  var front = [pose[0][1] > 24 && pose[0][0] > 13, pose[1][1] > 24 && pose[1][0] < 30]
+  if (sq > 1) front = [false, false]
+  layer(g, armMask([!front[0], !front[1]]), armFill)
 
-  // Body
-  layer(g, inBody, function(x, y, inside) {
-    if (!inside[y - 1][x]) return "h"
-    if (y + 1 < H && !inside[y + 1][x]) return "n"
-    if (y + 2 < H && !inside[y + 2][x] && y > by1) return "n"
-    if (!inside[y][x + 1]) return "n"
+  // Body with a light belly
+  layer(g, function(x, y) { return inEllipse(x, y, bcx, bcy, brx, bry) }, function(x, y, inside) {
+    if (inEllipse(x, y, bcx, bcy + 1.6, brx * 0.55, bry * 0.62)) return !IN(inside, x, y + 1) ? "n" : "w"
+    if (!IN(inside, x, y - 1)) return "h"
+    if (!IN(inside, x, y + 1)) return "n"
+    if (!IN(inside, x + 1, y) || !IN(inside, x + 2, y)) return "n"
     return "b"
   })
-  // gloss
-  putIf(g, bx0 + 3, by0 + 1, "l", "bh"); putIf(g, bx0 + 4, by0 + 1, "l", "bh"); putIf(g, bx0 + 2, by0 + 2, "l", "bh")
 
-  // D-pad (left) and face buttons (right).
-  var dy0 = by0 + 2 + (sq > 0 ? -1 : 0)
-  var press = o.press || ""
-  var dc = press === "L" || press === "B" ? "e" : "d"
-  stamp(g, bx0 + 1, dy0, ["..DD..", "..DD..", "DDDDDD", "DDDDDD", "..DD..", "..DD.."], { "D": dc })
-  put(g, bx0 + 3, dy0, "n"); put(g, bx0 + 1, dy0 + 2, "n")
-  var bcx = bx1 - 4, bcy = dy0 + 2
-  var lit = o.lit || ""
-  // dark well behind the four buttons
-  stamp(g, bcx - 3, bcy - 2, ["..DD..", ".DDDD.", "DDDDDD", "DDDDDD", ".DDDD.", "..DD.."], { "D": "d" })
-  var btn = [["t", bcx - 1, bcy - 2, "w"], ["l", bcx - 3, bcy, "p"], ["r", bcx + 1, bcy, "r"], ["b", bcx - 1, bcy + 2, "l"]]
-  for (var k = 0; k < btn.length; k++) {
-    var c = lit === btn[k][0] ? "x" : btn[k][3]
-    if ((press === "R" || press === "B") && lit === btn[k][0]) c = "e"
-    stamp(g, btn[k][1], btn[k][2], ["CC", "CC"], { "C": c })
-  }
+  // Head (round, big), top-lit, with three little spots.
+  layer(g, function(x, y) { return inEllipse(x, y, hcx, hcy, hrx, hry) }, function(x, y, inside) {
+    if (!IN(inside, x, y - 1)) return "h"
+    if (y + 1 < H && (!IN(inside, x, y + 1) || !IN(inside, x, y + 2))) return "n"
+    if (!IN(inside, x + 1, y)) return "n"
+    return "b"
+  })
+  var top = Math.ceil(hcy - hry)
+  putIf(g, 21, top + 2, "d", "b"); putIf(g, 18, top + 3, "d", "b"); putIf(g, 25, top + 3, "d", "b")
+  putIf(g, 14, top + 3, "l", "bh"); putIf(g, 15, top + 2, "l", "bh"); putIf(g, 13, top + 4, "h", "b")
 
   // Face
-  if (o.face) drawFace(g, 22, by0 + 2 - sq, o.face, sq)
+  if (o.face) drawFace(g, 22, Math.round(hcy) - 3 + (sq > 0 ? 1 : 0), o.face)
 
-  armLayer([front[0], front[1]])
+  // Headset
+  var hs = o.headset || "on"
+  if (hs === "on" || hs === "tilt") {
+    var band = []
+    for (var a = 0; a <= 12; a++) {
+      var ang = Math.PI * (1.08 + a * 0.84 / 12)
+      band.push([hcx + (hrx - 0.6) * Math.cos(ang), hcy + (hry + 0.2) * Math.sin(ang)])
+    }
+    layer(g, function(x, y) { return segDist(band, x, y) < 0.75 }, "e")
+    // ear cups, the left one lifted while it gets adjusted
+    var lift1 = hs === "tilt" ? 2 : 0
+    var cupY = Math.round(hcy) - 2
+    layer(g, function(x, y) {
+      return inRRect(x, y, 8 - sq, cupY - lift1, 11 - sq, cupY + 4 - lift1, 1.6) || inRRect(x, y, 32 + sq, cupY, 35 + sq, cupY + 4, 1.6)
+    }, function(x, y, inside) { return !IN(inside, x, y - 1) ? "n" : "d" })
+    // mic boom from the left cup to the mouth
+    var mic = [[10.5 - sq, cupY + 4.5 - lift1], [12.0, cupY + 6.5], [15.0, cupY + 7.2]]
+    for (var y2 = 0; y2 < H; y2++)
+      for (var x2 = 0; x2 < W; x2++)
+        if (g[y2][x2] !== "e" && segDist(mic, x2, y2) < 0.55) g[y2][x2] = "o"
+    stamp(g, 15, cupY + 6, ["dd", "dd"])
+  } else if (hs === "neck") {
+    // headset off, resting around the neck
+    var by = Math.round(hcy + hry) - 1
+    for (var x3 = 13; x3 <= 30; x3++) {
+      var dip = Math.round(Math.pow((x3 + 0.5 - 21.5) / 8.5, 2) * -1.6) + 1
+      putIf(g, x3, by + dip, "e", "bhnw")
+    }
+    layer(g, function(x, y) { return inRRect(x, y, 10, by - 1, 13, by + 2, 1.4) || inRRect(x, y, 30, by - 1, 33, by + 2, 1.4) },
+      function(x, y, inside) { return !IN(inside, x, y - 1) ? "n" : "d" })
+  }
+
+  // Controller
+  var pad = o.pad || "hold"
+  var px0 = 16, py0 = 24 + sq
+  if (pad === "raised") { px0 = 16; py0 = 1 }
+  if (pad === "floor") { px0 = 1; py0 = 31 }
+  if (pad !== "none") {
+    layer(g, function(x, y) { return inRRect(x, y, px0, py0, px0 + 11, py0 + 3, 1.5) }, function(x, y, inside) {
+      return !IN(inside, x, y - 1) ? "n" : "d"
+    })
+    var pl = o.press === "L" ? "o" : "e"
+    stamp(g, px0 + 2, py0 + 1, [".E.", "EEE"], { "E": pl })
+    put(g, px0 + 3, py0 + 3, pl)
+    var lit = o.lit || ""
+    put(g, px0 + 8, py0 + 1, lit === "a" ? "x" : "p")
+    put(g, px0 + 9, py0 + 2, lit === "b" ? "x" : (o.press === "R" ? "o" : "r"))
+    put(g, px0 + 7, py0 + 2, "w")
+  }
+
+  // Hands in front (gripping the pad); a raised pad gets just the mittens
+  layer(g, armMask([front[0], front[1]]), armFill)
+  if (o.arms === "raise") layer(g, function(x, y) { return inHand(0, x, y) || inHand(1, x, y) }, armFill)
 
   if (o.trophy) {
-    // balanced proudly on its head
-    stamp(g, 16, by0 - 10, TROPHY)
+    // held up in front of the tummy, inked so it pops off the pale belly
+    stamp(g, 17, 20, TROPHY, { "o": "e" })
+    layer(g, function(x, y) { return inHand(0, x, y) || inHand(1, x, y) }, armFill)
   }
 
   if (o.lean) {
@@ -329,8 +412,9 @@ var cache = {}
 var cacheSize = 0
 function frame(o) {
   var f = o.face || {}
-  var key = [o.lift || 0, o.squash || 0, o.arms || "", o.legs || "", o.cable || "", o.lean || 0, o.press || "", o.lit || "",
-    o.trophy ? 1 : 0, o.face ? [f.eyes, f.mouth, f.brows || "", f.blush ? 1 : 0, f.lookX || 0, f.lookY || 0].join(",") : ""].join("|")
+  var key = [o.lift || 0, o.squash || 0, o.arms || "", o.pad || "", o.press || "", o.lit || "", o.gills || "", o.headset || "",
+    o.tail || "", o.legs || "", o.lean || 0, o.trophy ? 1 : 0,
+    o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : ""].join("|")
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -341,9 +425,9 @@ function frame(o) {
 }
 
 var shadow = [
-  ["......tttttttttttttttttttttttttttt......", ".........tttttttttttttttttttttt........."],
-  [".........tttttttttttttttttttttt.........", "............tttttttttttttttt............"],
-  ["............tttttttttttttttt............", "........................................"]
+  [".........tttttttttttttttttttttttttt.....", "............tttttttttttttttttttt........"],
+  ["...........tttttttttttttttttttttt.......", "..............tttttttttttttttt.........."],
+  ["..............tttttttttttttttt..........", "........................................"]
 ]
 
 // ---------------------------------------------------------------- scene
@@ -361,172 +445,176 @@ function init(fx) {
   dustR = mirrorRows(fx.dust[1])
 }
 
-var BUTTONS = ["t", "r", "b", "l"]
-
 function scene(st, fx0) {
   if (fx0) init(fx0)
   var t = st.t, tick = Math.floor(t * 4), mood = st.mood, strain = st.strain || 0
-  var o = { arms: "rest", legs: "stand", cable: "rest" }
+  var o = { arms: "hold", pad: "hold", gills: "rest", headset: "on", tail: "rest", legs: "stand" }
   var face = { eyes: st.blink ? "blink" : "open", mouth: "smile", lookX: 0, lookY: 0 }
   var dx = 0, dy = 0, fx = []
   var sleepy = mood === "idle" && !st.hovered && !st.bop && !st.reaction && !st.dragged && st.landT < 0
 
   if (sleepy) {
-    o.squash = 1; o.legs = "tuck"; o.arms = "tuck"; o.cable = "droop"
+    // curled up, headset around the neck, pad put down beside it
+    o = { squash: 1, arms: "tuck", pad: "floor", gills: "droop", headset: "neck", tail: "curl", legs: "tuck" }
     o.lift = Math.floor(st.wall) % 3 === 0 ? 1 : 0
     face = { eyes: "sleep", mouth: "tiny" }
     for (var z = 0; z < 2; z++) {
       var ph = ((st.wall * 0.35 + z * 0.5) % 1 + 1) % 1
-      if (ph < 0.85) fx.push({ rows: z === 0 ? FX.zed : FX.zedSmall, x: 35 + Math.round(Math.sin(ph * 6.28)) - z * 3, y: 13 - Math.round(ph * 11), c: "o", op: 0.7 })
+      if (ph < 0.85) fx.push({ rows: z === 0 ? FX.zed : FX.zedSmall, x: 36 + Math.round(Math.sin(ph * 6.28)) - z * 3, y: 13 - Math.round(ph * 11), c: "o", op: 0.7 })
     }
   } else if (mood === "idle" || mood === "ready") {
-    var fd = st.fidget, ft = st.fidgetT
-    if (fd === "press") {
-      // presses its own buttons, one after another, delighted
-      var step = Math.floor(ft * 4)
-      o.arms = "pressR"
-      o.lit = BUTTONS[step % 4]
+    var fd = st.fidget, ft = st.fidgetT, step = Math.floor(ft * 4)
+    if (fd === "headset") {
+      // nudges its left ear cup into place
+      var adj = ft > 0.3 && ft < 1.6
+      o.arms = adj ? "ear" : "hold"; o.pad = adj ? "none" : "hold"
+      o.headset = adj && step % 2 === 0 ? "tilt" : "on"
+      face.eyes = adj ? "happy" : face.eyes; face.mouth = adj ? "o" : "smile"; face.lookX = adj ? -1 : 0
+    } else if (fd === "press") {
+      o.arms = step % 2 === 0 ? "mashB" : "hold"
       o.press = step % 2 === 0 ? "R" : ""
-      face.eyes = "happy"; face.mouth = step % 2 === 0 ? "o" : "grin"; face.lookX = 1; face.lookY = 0
-      o.cable = step % 2 === 0 ? "wagA" : "wagB"
+      o.lit = step % 4 < 2 ? "a" : "b"
+      face.eyes = "happy"; face.mouth = step % 2 === 0 ? "o" : "grin"; face.lookY = 1
+      o.gills = step % 2 === 0 ? "wigA" : "wigB"
     } else if (fd === "look") {
       face.lookX = ft < 0.9 ? -1 : ft < 1.9 ? 1 : 0
       face.lookY = ft > 1.9 && ft < 2.5 ? -1 : 0
       face.mouth = "flat"
     } else if (fd === "stretch") {
       var up = ft > 0.3 && ft < 2.2
-      o.arms = up ? "high" : "up"; o.lift = up ? 1 : 0
+      o.arms = "up"; o.pad = "floor"; o.lift = up ? 1 : 0
+      o.gills = up ? "flare" : "rest"
       face.eyes = up ? "happy" : "open"; face.mouth = up ? "o" : "smile"
     } else if (fd === "wiggle") {
-      dx = tick % 4 < 2 ? -1 : 1
-      o.arms = tick % 4 < 2 ? "danceA" : "danceB"
-      o.cable = tick % 2 === 0 ? "wagA" : "wagB"
+      o.tail = step % 2 === 0 ? "wagA" : "wagB"
+      o.gills = step % 2 === 0 ? "wigA" : "wigB"
+      dx = step % 4 < 2 ? -1 : 0
       face.eyes = "happy"; face.mouth = "omega"
-    } else if (fd === "dpad") {
-      var s2 = Math.floor(ft * 4)
-      o.arms = "mashA"; o.press = s2 % 2 === 0 ? "L" : ""
-      face.lookX = s2 % 4 < 2 ? -1 : 1; face.mouth = "tiny"
     }
     if (mood === "idle" && !fd && face.eyes === "open") face.eyes = "half"
     if (st.hovered && !fd) face.mouth = "grin"
   } else if (mood === "launching") {
-    o.arms = tick % 2 === 0 ? "up" : "high"
-    o.cable = tick % 2 === 0 ? "wagA" : "wagB"
-    dy = tick % 2 === 0 ? -2 : 0
+    o.arms = "raise"; o.pad = "raised"
+    o.gills = tick % 2 === 0 ? "rest" : "wigA"
+    o.tail = tick % 2 === 0 ? "wagA" : "wagB"
+    dy = tick % 2 === 0 ? -1 : 0
     face = { eyes: "sparkle", mouth: "big" }
-    if (tick % 4 < 3) fx.push({ rows: FX.bang, x: 39, y: 2, c: "o", op: 1 })
-    if (tick % 2 === 0) fx.push({ rows: FX.sparkle[1], x: 1, y: 6, c: "o", op: 1 })
+    if (tick % 4 < 3) fx.push({ rows: FX.bang, x: 40, y: 3, c: "o", op: 1 })
+    if (tick % 2 === 0) fx.push({ rows: FX.sparkle[1], x: 0, y: 3, c: "o", op: 1 })
   } else if (mood === "playing") {
     if (strain === 0) {
-      // focused button mashing, tongue out
       o.arms = tick % 2 === 0 ? "mashA" : "mashB"
       o.press = tick % 2 === 0 ? "L" : "R"
-      o.lit = tick % 2 === 0 ? "" : BUTTONS[Math.floor(tick / 2) % 4]
-      face = { eyes: "focusL", brows: "focus", mouth: "tongue", lookX: tick % 8 < 4 ? 0 : 1, lookY: 0 }
-      o.cable = "rest"
+      o.lit = tick % 2 === 0 ? "" : (Math.floor(tick / 2) % 2 === 0 ? "a" : "b")
+      face = { eyes: "focusL", brows: "focus", mouth: "tongue", lookY: 1, lookX: tick % 8 < 4 ? 0 : 1 }
+      o.tail = tick % 8 < 4 ? "rest" : "wagA"
     } else if (strain === 1) {
-      // the system is struggling, so is the player
       o.arms = tick % 2 === 0 ? "mashA" : "mashB"
-      o.press = "B"
-      o.lit = BUTTONS[tick % 4]
+      o.press = tick % 2 === 0 ? "L" : "R"
+      o.lit = tick % 2 === 0 ? "a" : "b"
+      o.gills = "flare"
       face = { eyes: "strainL", mouth: "grit" }
       dx = tick % 2 === 0 ? -1 : 1
       o.legs = tick % 2 === 0 ? "stompL" : "stompR"
-      o.cable = tick % 2 === 0 ? "wagA" : "wagB"
+      o.tail = tick % 2 === 0 ? "wagA" : "wagB"
       sweat(fx, t, 2)
-      if (tick % 4 < 2) { fx.push({ rows: FX.effort, x: 0, y: 12, c: "o", op: 1 }); fx.push({ rows: effortR, x: 40, y: 12, c: "o", op: 1 }) }
+      if (tick % 4 < 2) { fx.push({ rows: FX.effort, x: 0, y: 18, c: "o", op: 1 }); fx.push({ rows: effortR, x: 40, y: 18, c: "o", op: 1 }) }
     } else {
-      // maxed out: dizzy, still mashing but wobbling
-      o.arms = tick % 2 === 0 ? "mashA" : "flailB"
+      o.arms = tick % 2 === 0 ? "mashA" : "mashB"
       o.press = tick % 2 === 0 ? "L" : ""
-      o.lit = BUTTONS[tick % 4]
+      o.lit = tick % 2 === 0 ? "a" : ""
+      o.gills = tick % 2 === 0 ? "wigA" : "wigB"
       face = { eyes: tick % 2 === 0 ? "dizzy" : "dizzyB", mouth: "wobble" }
       dx = [0, -1, 0, 1][tick % 4]
-      o.cable = tick % 2 === 0 ? "swingA" : "swingB"
-      fx.push({ rows: FX.spiral[tick % 2], x: 36, y: 1, c: "o", op: 1 })
+      o.tail = tick % 2 === 0 ? "wagA" : "wagB"
+      fx.push({ rows: FX.spiral[tick % 2], x: 37, y: 0, c: "o", op: 1 })
       sweat(fx, t, 3)
     }
   } else if (mood === "report") {
-    o.arms = "hips"; o.trophy = true; o.cable = "droop"
-    face = { eyes: "happy", mouth: "grin", blush: true }
-    fx.push({ rows: FX.sparkle[st.blink ? 1 : 0], x: 28, y: 0, c: "o", op: 1 })
-    fx.push({ rows: FX.sparkle[st.blink ? 0 : 1], x: 10, y: 3, c: "o", op: 1 })
+    o.arms = "trophy"; o.pad = "none"; o.trophy = true
+    o.gills = st.blink ? "wigA" : "rest"
+    o.tail = st.blink ? "wagA" : "rest"
+    face = { eyes: "happy", mouth: "grin" }
+    fx.push({ rows: FX.sparkle[st.blink ? 1 : 0], x: 36, y: 19, c: "o", op: 1 })
+    fx.push({ rows: FX.sparkle[st.blink ? 0 : 1], x: 3, y: 22, c: "o", op: 1 })
   }
 
-  // cat dancing next door: bop along (unless busy struggling)
+  // cat dancing next door: bop along (unless busy gaming)
   if (st.bop && mood !== "playing" && mood !== "launching" && !st.reaction) {
     var gb = st.beat
-    o.arms = gb % 2 === 0 ? "danceA" : "danceB"
-    o.cable = gb % 2 === 0 ? "wagA" : "wagB"
-    o.squash = 0; o.legs = "stand"; o.lift = 0
+    if (mood !== "report") { o.arms = gb % 2 === 0 ? "danceA" : "danceB"; o.pad = "floor" }
+    o.gills = gb % 2 === 0 ? "wigA" : "wigB"
+    o.tail = gb % 2 === 0 ? "wagA" : "wagB"
+    o.squash = 0; o.legs = "stand"; o.lift = 0; o.headset = "on"
     dy = gb % 2 === 0 ? -1 : 0
-    dx = Math.floor(gb / 2) % 2 === 0 ? -1 : 1
+    dx = Math.floor(gb / 2) % 2 === 0 ? -1 : 0
     face = { eyes: "happy", mouth: gb % 2 === 0 ? "grin" : "omega" }
-    if (mood === "report") { o.trophy = true; o.cable = "droop"; face.blush = true }
     for (var nn = 0; nn < 2; nn++) {
       var np = ((t * 0.7 + nn * 0.5) % 1 + 1) % 1
-      if (np < 0.8) fx.push({ rows: nn === 0 ? FX.note : FX.noteDouble, x: 2 + nn * 4 + Math.round(Math.sin(np * 6.28)), y: 12 - Math.round(np * 11), c: "o", op: 1 })
+      if (np < 0.8) fx.push({ rows: nn === 0 ? FX.note : FX.noteDouble, x: 1 + nn * 4 + Math.round(Math.sin(np * 6.28)), y: 14 - Math.round(np * 12), c: "o", op: 1 })
     }
   }
 
   // ---- touch reactions ----
   var struggling = mood === "playing" && strain > 0
   if (st.dragged) {
-    o = { arms: tick % 2 === 0 ? "flailA" : "flailB", legs: tick % 2 === 0 ? "dangleA" : "dangleB",
-          cable: tick % 2 === 0 ? "swingA" : "swingB", lean: st.lean || 0 }
+    o = { arms: tick % 2 === 0 ? "flailA" : "flailB", pad: "none", gills: "back", headset: "on",
+          tail: "hang", legs: tick % 2 === 0 ? "dangleA" : "dangleB", lean: st.lean || 0 }
     face = { eyes: "wide", mouth: "wobble", brows: "worry" }
     dy = -2; dx = 0
     fx = []
-    if (tick % 4 < 3) fx.push({ rows: FX.bang, x: 40, y: 1, c: "r", op: 1 })
+    if (tick % 4 < 3) fx.push({ rows: FX.bang, x: 41, y: 1, c: "r", op: 1 })
     sweat(fx, t, 1)
   } else if (st.landT >= 0) {
     var lt = st.landT
-    o = { arms: "rest", legs: "stand", cable: "rest" }
+    o = { arms: "out", pad: "none", gills: "rest", headset: "on", tail: "rest", legs: "stand" }
     fx = []; dx = 0; dy = 0
     if (lt < 0.3) {
-      o.squash = 2; o.legs = "wide"; o.cable = "droop"
+      o.squash = 2; o.gills = "droop"
       face = { eyes: "squintL", mouth: "o" }
-      fx.push({ rows: FX.dust[0], x: 1, y: 31, c: "o", op: 0.6 })
-      fx.push({ rows: FX.dust[1], x: 37, y: 31, c: "o", op: 0.6 })
+      fx.push({ rows: FX.dust[0], x: 3, y: 31, c: "o", op: 0.6 })
+      fx.push({ rows: FX.dust[1], x: 35, y: 31, c: "o", op: 0.6 })
     } else if (lt < 0.5) {
-      dy = -1; o.cable = "wagA"
+      dy = -1; o.gills = "flare"
       face = { eyes: "wide", mouth: "o" }
-      fx.push({ rows: FX.dust[1], x: 0, y: 30, c: "o", op: 0.35 })
-      fx.push({ rows: dustR, x: 38, y: 30, c: "o", op: 0.35 })
+      fx.push({ rows: FX.dust[1], x: 2, y: 30, c: "o", op: 0.35 })
+      fx.push({ rows: dustR, x: 36, y: 30, c: "o", op: 0.35 })
     } else {
       var lk = Math.floor(lt * 4)
       face = { eyes: lk % 2 === 0 ? "dizzy" : "dizzyB", mouth: "wobble" }
       dx = lk % 2 === 0 ? -1 : 1
-      o.cable = lk % 2 === 0 ? "swingA" : "swingB"
-      fx.push({ rows: FX.spiral[lk % 2], x: 36, y: 1, c: "o", op: 1 })
+      o.gills = lk % 2 === 0 ? "wigA" : "wigB"
+      fx.push({ rows: FX.spiral[lk % 2], x: 37, y: 0, c: "o", op: 1 })
     }
   } else if (st.reaction === "squish") {
-    o = { arms: "out", legs: "wide", cable: "droop", squash: 2 }
-    face = { eyes: "happy", mouth: tick % 2 === 0 ? "giggle" : "grin", blush: true }
+    o = { arms: "out", pad: "none", gills: "flare", headset: "on", tail: tick % 2 === 0 ? "wagA" : "wagB", legs: "stand", squash: 2 }
+    face = { eyes: "happy", mouth: tick % 2 === 0 ? "giggle" : "grin" }
     dx = tick % 2 === 0 ? 0 : 1; dy = 0
     fx = struggling ? keepSweat(t) : []
     if (tick % 4 < 2) fx.push({ rows: FX.sparkle[tick % 2], x: 38, y: 12, c: "o", op: 1 })
   } else if (st.reaction === "pet") {
+    // gills wiggle happily, tail wags
     var rt = st.reactT, rk = Math.floor(rt * 4)
-    o = { arms: rk % 2 === 0 ? "danceA" : "danceB", legs: "stand", cable: rk % 2 === 0 ? "wagA" : "wagB",
-          lit: BUTTONS[rk % 4] }
-    face = struggling ? { eyes: "strainL", mouth: "grin", blush: true } : { eyes: "squintL", mouth: "omega", blush: true }
-    dx = rk % 2 === 0 ? -1 : 1
-    dy = rt < 0.25 ? -1 : 0
+    o = { arms: "hold", pad: "hold", gills: rk % 2 === 0 ? "wigA" : "wigB", headset: "on",
+          tail: rk % 2 === 0 ? "wagA" : "wagB", legs: "stand", lit: rk % 2 === 0 ? "a" : "b" }
+    face = struggling ? { eyes: "strainL", mouth: "grin" } : { eyes: "squintL", mouth: "omega" }
+    dy = rt < 0.25 ? -1 : 0; dx = 0
     fx = struggling ? keepSweat(t) : []
     var hp = Math.min(1, rt / 1.6)
-    fx.push({ rows: FX.heart, x: 36 + rk % 2, y: 12 - Math.round(hp * 10), c: "r", op: hp < 0.9 ? 1 : 0.5 })
+    fx.push({ rows: FX.heart, x: 36 + rk % 2, y: 10 - Math.round(hp * 10), c: "r", op: hp < 0.9 ? 1 : 0.5 })
     if (rt > 0.5) {
       var hp2 = Math.min(1, (rt - 0.5) / 1.3)
-      fx.push({ rows: FX.heartSmall, x: 2 - rk % 2, y: 12 - Math.round(hp2 * 9), c: "r", op: hp2 < 0.9 ? 1 : 0.5 })
+      fx.push({ rows: FX.heartSmall, x: 2 - rk % 2, y: 10 - Math.round(hp2 * 9), c: "r", op: hp2 < 0.9 ? 1 : 0.5 })
     }
   } else if (st.reaction === "annoyed") {
-    o = { arms: "hips", legs: tick % 2 === 0 ? "stompL" : "stompR", cable: "swingB", lit: "r" }
+    // gills puff out, stomps, pouts
+    o = { arms: "hips", pad: "floor", gills: "flare", headset: "on", tail: tick % 2 === 0 ? "wagA" : "wagB",
+          legs: tick % 2 === 0 ? "stompL" : "stompR" }
     face = { eyes: "angryL", brows: "angry", mouth: "pout" }
     dx = tick % 2 === 0 ? -1 : 0; dy = 0
     fx = struggling ? keepSweat(t) : []
-    fx.push({ rows: FX.anger, x: 36, y: tick % 2 === 0 ? 2 : 3, c: "r", op: 1 })
-    if (tick % 3 === 0) fx.push({ rows: FX.puff[0], x: 2, y: 8, c: "o", op: 0.5 })
+    fx.push({ rows: FX.anger, x: 36, y: tick % 2 === 0 ? 1 : 2, c: "r", op: 1 })
+    if (tick % 3 === 0) fx.push({ rows: FX.puff[0], x: 1, y: 20, c: "o", op: 0.5 })
   }
 
   // hover: eyes follow the pointer
@@ -545,7 +633,7 @@ function sweat(fx, t, n) {
   for (var i = 0; i < n; i++) {
     var p = ((t * 1.1 + i / n) % 1 + 1) % 1
     var side = i % 2 === 0
-    if (p < 0.85) fx.push({ rows: FX.sweat, x: side ? 37 : 2, y: 8 + Math.round(p * 9) + i, c: "l", op: 1 })
+    if (p < 0.85) fx.push({ rows: FX.sweat, x: side ? 36 : 3, y: 6 + Math.round(p * 9) + i, c: "l", op: 1 })
   }
 }
 

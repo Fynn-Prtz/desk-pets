@@ -2,24 +2,26 @@ import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
 
-// Pixel gamepad critter (px 2 on the shared 44x38 pet canvas, docs/PETS.md).
-// Its body is the controller: bumper ears, d-pad and face buttons, ink eyes,
-// mitten arms that reach its own buttons, the USB cable as a curly sprout.
-// Everything it shows comes from Sprites.scene(); this item gathers state,
-// times fidgets / blinks / reactions and lays out body, shadow and effects.
+// Pixel axolotl gamer (px 2 on the shared 44x38 pet canvas, docs/PETS.md):
+// big round head with pink frilly gills, chubby body, tail, mitten arms
+// holding a small controller, headset with mic. Everything it shows comes
+// from Sprites.scene(); this item gathers state, times fidgets / blinks /
+// reactions and lays out body, shadow and effects.
 //
-//   idle       curled up asleep, cable drooping, z's
-//   ready      blinks, fidgets (presses its own buttons, d-pad, looks around,
-//              stretches, wiggles)
-//   launching  sparkly eyes, jumps with arms up, "!"
-//   playing    focused, tongue out, mashing d-pad + buttons
-//     strain 1 (system buddy under load): > < eyes, gritted teeth, frantic
-//              mashing, stomping, sweat, effort lines
+//   idle       curled up asleep, headset around its neck, pad put down, z's
+//   ready      blinks, fidgets (adjusts headset, presses buttons, looks
+//              around, stretches, wiggles gills + tail)
+//   launching  sparkly eyes, hops with the pad raised over its head, "!"
+//   playing    focused, tongue out, mashing the pad (buttons flash)
+//     strain 1 (system buddy under load): > < eyes, gritted teeth, gills
+//              flared, frantic mashing, stomping, sweat, effort lines
 //     strain 2 (buddy maxed / hot): rolling dizzy eyes, wobbling, spirals
-//   report     proud grin, trophy balanced on its head, sparkles (no ticking:
-//              the sparkles twinkle on the blink timer)
-//   bop        cat dancing next door: bops along with notes
-// Touch (PetTouch): pet, annoyed, squish, hover, drag, landing.
+//   report     proud grin, holds the trophy up in front of its tummy,
+//              sparkles twinkle on the blink timer (no clock ticks)
+//   bop        cat dancing next door: dances with notes
+// Touch (PetTouch): pet (gills wiggle, tail wags, hearts), annoyed (gills
+// puff, stomps), squish, hover (eyes follow), drag (dangles, gills swept
+// back), landing.
 Item {
   id: gamer
   property string mood: "idle"   // idle | ready | launching | playing | report
@@ -58,8 +60,8 @@ Item {
   Timer { id: blinkOff; interval: 150; onTriggered: gamer.blinking = false }
 
   // ---------- idle fidgets (ready only) ----------
-  readonly property var fidgets: ["press", "look", "stretch", "wiggle", "dpad"]
-  readonly property var fidgetLength: ({ press: 2500, look: 2800, stretch: 2600, wiggle: 2000, dpad: 2000 })
+  readonly property var fidgets: ["headset", "press", "look", "stretch", "wiggle"]
+  readonly property var fidgetLength: ({ headset: 2000, press: 2500, look: 2800, stretch: 2600, wiggle: 2000 })
   property string fidget: ""
   property real fidgetStart: 0
   Timer {
