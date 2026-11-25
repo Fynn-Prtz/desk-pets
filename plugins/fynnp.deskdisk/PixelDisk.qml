@@ -125,7 +125,7 @@ Item {
     if (full) {
       if (strain) { p.e = "dizzy"; p.m = "wobble"; p.ln = tick % 4 < 2 ? 1 : -1; p.g = odd ? "shake1" : "shake2"; p.bs = 2; return p }
       p.e = "worried"; p.m = "wobble"; p.bs = 2
-      var w = beat % 4
+      let w = beat % 4
       p.ln = w === 1 ? 1 : w === 3 ? -1 : 0
       if (look) { p.lx = touch.lookX; p.ly = touch.lookY }
       return p
@@ -138,7 +138,7 @@ Item {
       return p
     }
     if (busy) {
-      var b = beat % 2
+      let b = beat % 2
       p.a = b ? "carry" : "carry2"; p.sh = reading ? (b ? 3 : 0) : (b ? 0 : 3)
       p.e = "open"; p.ly = -1; p.lx = b ? 1 : -1; p.m = "open"
       p.hop = tick % 2 ? -1 : 0
@@ -190,7 +190,7 @@ Item {
   // ---------- palettes ----------
   readonly property var bodyPalette: colors.base
   readonly property var inkFx: colors.fx(colors.fg)
-  readonly property var heartFx: colors.fx(colors.base.p)
+  readonly property var heartFx: colors.fx(colors.urgent)
   readonly property var sweatFx: colors.fx(colors.base.w)
   readonly property var hotFx: colors.fx(colors.urgent)
   readonly property var bitFx: colors.fx(full ? colors.base.k : colors.base.l)

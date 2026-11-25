@@ -281,13 +281,15 @@ Item {
   function rate(v) { return bytes(v) + "/s" }
   readonly property real totalBoth: totalRx + totalTx
 
-  // Pixel buddy clock: only ticks while visible and something is animating.
+  // Pet clock (seconds): ticks only while visible and the router animates
+  // (a calm router just blinks on its own timer); 8 fps only while it reacts
+  // to a touch or a drag.
   property real clock: 0
   Timer {
-    interval: 250
+    interval: buddy.touch.busy ? 125 : 250
     repeat: true
-    running: root.active && (buddy.sleepy || root.mood === "busy" || buddy.moving)
-    onTriggered: root.clock += 0.25
+    running: root.active && buddy.needsClock
+    onTriggered: root.clock += interval / 1000
   }
 
   // Mood bus, read-only: the router reacts to the cat but doesn't publish a
@@ -324,8 +326,15 @@ Item {
     WlrLayershell.layer: place.wlrLayer
     WlrLayershell.keyboardFocus: place.keyboardFocus
     exclusionMode: ExclusionMode.Ignore
-    // Nothing to click: let the pointer fall through to the desktop.
-    mask: place.editing ? place.editMask : place.noInput
+    // Only the pet takes the pointer; the rest falls through to the desktop.
+    mask: place.editing ? place.editMask : petRegion
+    Region {
+      id: petRegion
+      x: buddy.touch.maskRect.x
+      y: buddy.touch.maskRect.y
+      width: buddy.touch.maskRect.width
+      height: buddy.touch.maskRect.height
+    }
 
     // Placement + edit mode; see docs/DESKPLACE.md in the desk-pets repo.
     DeskPlace {
@@ -371,13 +380,15 @@ Item {
 
           PixelRouter {
             id: buddy
-            px: 4
+            px: 2
             mood: root.mood
             clock: root.clock
             active: root.active
             rx: root.rx
             tx: root.tx
             catMood: link.peers.cat || ""
+            place: place
+            window: win.contentItem
           }
 
           Column {

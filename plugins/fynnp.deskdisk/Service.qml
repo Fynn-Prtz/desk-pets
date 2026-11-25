@@ -305,10 +305,11 @@ Item {
     return false
   }
   readonly property real ioRate: readRate + writeRate
-  readonly property bool heavy: util >= 50 || ioRate >= 50e6
+  // The floppy's ladder: busy carries bits; from util 50 % / 50 MB/s on it
+  // struggles (PixelDisk reads util and the rates for that).
   readonly property string mood: !ready ? "idle"
     : anyFull ? "full"
-    : heavy ? "busy"
+    : util >= 20 || ioRate >= 8e6 ? "busy"
     : ioRate >= 0.5e6 ? "light"
     : "idle"
 
@@ -331,14 +332,15 @@ Item {
     return fmt(Math.round(b / 1e3), 0) + " kB/s"
   }
 
-  // Pixel buddy clock: only ticks while visible and something is animating
-  // (a lightly used disk just blinks on its own timer).
+  // Pet clock (seconds): ticks only while visible and the floppy animates
+  // (a calm disk just blinks on its own timer); 8 fps only while it reacts
+  // to a touch or a drag.
   property real clock: 0
   Timer {
-    interval: 250
+    interval: buddy.touch.busy ? 125 : 250
     repeat: true
-    running: root.active && (root.mood !== "light" || buddy.moving)
-    onTriggered: root.clock += 0.25
+    running: root.active && buddy.needsClock
+    onTriggered: root.clock += interval / 1000
   }
 
   // Read-only view of the mood bus (no name = publishes nothing), so the
@@ -375,8 +377,15 @@ Item {
     WlrLayershell.layer: place.wlrLayer
     WlrLayershell.keyboardFocus: place.keyboardFocus
     exclusionMode: ExclusionMode.Ignore
-    // Nothing to click: let the pointer fall through to the desktop.
-    mask: place.editing ? place.editMask : place.noInput
+    // Only the pet takes the pointer; the rest falls through to the desktop.
+    mask: place.editing ? place.editMask : petRegion
+    Region {
+      id: petRegion
+      x: buddy.touch.maskRect.x
+      y: buddy.touch.maskRect.y
+      width: buddy.touch.maskRect.width
+      height: buddy.touch.maskRect.height
+    }
 
     // Placement + edit mode; see docs/DESKPLACE.md in the desk-pets repo.
     DeskPlace {
@@ -422,11 +431,16 @@ Item {
 
           PixelDisk {
             id: buddy
-            px: 4
+            px: 2
             mood: root.mood
+            util: root.util
+            readRate: root.readRate
+            writeRate: root.writeRate
             clock: root.clock
             active: root.active
             catMood: link.peers.cat || ""
+            place: place
+            window: win.contentItem
           }
 
           Column {
