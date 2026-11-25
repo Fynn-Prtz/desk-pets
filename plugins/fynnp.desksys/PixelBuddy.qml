@@ -1,105 +1,167 @@
 import QtQuick
-import qs.Commons
-import qs.Commons as Commons
 import "Sprites.js" as Sprites
+import "PetFx.js" as PetFx
 
-// Pixel computer buddy. Idle: dozes, z's drift up. Light work: blinks.
-// Working: ^ ^ and bobs. Under load: strains and sweats. Maxed/hot: shakes,
-// LED turns urgent, a flame flickers. Moves only in whole pixels.
+// Pixel computer buddy (px 2 on the shared 44x38 pet canvas, docs/PETS.md).
+// A little CRT with a face on its lit screen, stubby legs, mitten arms and a
+// power-cable tail. Everything it shows comes from Sprites.scene(): this
+// item only gathers the state, times fidgets / blinks / reactions and lays
+// out the body, the floor shadow and up to six effect sprites.
 //
-// Reacts to its desk neighbours (DeskLink moods, "" = card absent):
-//   cat dance        -> (unless stressed) wakes, bobs to the beat, eyes
-//                       bounce on the screen, notes rise
-//   gamer launching  -> "!" on the screen
-//   gamer playing    -> game pad on the screen while under load
+// Ladder (mood from CPU/GPU load + temps):
+//   idle  dark screen, sleeps, breathes, LED pulses, z's
+//   chill blinks, fidgets (look around, stretch, yawn, screensaver, wiggle, beep)
+//   work  types on a tiny keyboard, progress bar fills, bobs
+//   load  STRUGGLE: > < eyes, gritted teeth, pumping arms, stomping, sweat,
+//         effort lines, vent puffs, shaking
+//   maxed loading ring / "100%" glitch / dizzy, flailing, heavy sweat, sparks
+//   hot   flames + smoke, red LED, panting with tongue out, fanning itself
+// Neighbours: cat dance -> dances with notes; gamer launching -> "!" on the
+// screen; gamer playing while stressed -> gamepad on the screen.
+// Touch (PetTouch): pet, annoyed, squish, hover (eyes follow), drag (dangles,
+// cable swings), landing (squash + dust, then dizzy).
 Item {
   id: buddy
   property string mood: "idle"   // idle | chill | work | load | maxed | hot
   property real clock: 0
-  property int px: 4
+  property int px: 2
   property bool active: true
   property string catMood: ""
   property string gamerMood: ""
+  property var place: null
+  property Item window: null
+  property alias touch: touch
 
-  property bool blinking: false
+  width: 44 * px
+  height: 38 * px
+
+  PetColors { id: colors }
+
   readonly property bool stressed: mood === "load" || mood === "maxed" || mood === "hot"
   readonly property bool grooving: !stressed && catMood === "dance"
   readonly property string screenKey: gamerMood === "launching" ? "bang"
     : (gamerMood === "playing" && stressed) ? "pad" : ""
-  readonly property bool sleepy: mood === "idle" && !grooving && screenKey === ""
-  // True while a neighbour needs the clock even though the buddy's own mood
-  // would let it rest (the service keeps its tick running for this).
-  readonly property bool moving: grooving
 
-  readonly property string eyeKey: grooving ? "happy"
-    : sleepy ? "sleep"
-    : mood === "work" ? "happy"
-    : mood === "load" ? "strain"
-    : (mood === "maxed" || mood === "hot") ? "dizzy"
-    : blinking ? "blink" : "open"
-  readonly property string mouthKey: grooving ? "open"
-    : sleepy ? "none" : (mood === "maxed" || mood === "hot") ? "open" : "flat"
+  // Wants frames although the mood alone would rest (the service keeps its
+  // clock running for this).
+  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running
+  // Reactions, drags and landings play at 8 fps; everything else at 4.
+  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
 
-  readonly property int beat: Math.floor(clock * 2)
-  // Wall-clock seconds, re-read whenever the clock ticks: shared with the cat
-  // so both cards' z's float in sync, and the groove lands on a steady beat.
+  // Wall-clock seconds, re-read on every tick: shared with the cat so z's
+  // and the groove beat line up across cards.
   readonly property real wall: { var tick = buddy.clock; return (Date.now() % 100000000) / 1000 }
-  readonly property int grooveBeat: Math.floor(wall * 4)
-  readonly property int eyeShift: grooving && grooveBeat % 2 === 1 ? -1 : 0
-  readonly property int hop: grooving ? (grooveBeat % 2 === 0 ? -px : 0)
-    : mood === "work" && beat % 2 === 0 ? -px : 0
-  readonly property int shake: (mood === "maxed" || mood === "hot") ? (beat % 2 === 0 ? -px : px) : 0
 
-  readonly property color ledColor: stressed ? Commons.Color.urgent : Commons.Color.accent
-  readonly property var palette: ({
-    "o": Commons.Color.foreground,
-    "b": Commons.Color.accent,
-    "s": Commons.Color.background,
-    "f": Commons.Color.foreground,
-    "l": buddy.ledColor
-  })
-  readonly property var fxPalette: ({ "o": mood === "hot" ? Commons.Color.urgent : Commons.Color.accent })
-  readonly property var zedPalette: ({ "o": Commons.Color.foreground })
-
-  width: 16 * px + px * 6
-  height: 13 * px + px * 6
-
+  // ---------- blinks ----------
+  property bool blinking: false
+  readonly property bool awake: mood === "chill" || mood === "work" || (mood === "idle" && touch.hovered)
   Timer {
     interval: 3200
-    running: buddy.active && buddy.mood === "chill" && !buddy.grooving && buddy.screenKey === ""
+    running: buddy.active && buddy.awake && !buddy.grooving
     repeat: true
     onTriggered: { buddy.blinking = true; blinkOff.restart(); interval = 2600 + Math.floor(Math.random() * 3000) }
   }
   Timer { id: blinkOff; interval: 150; onTriggered: buddy.blinking = false }
 
-  PixelSprite {
-    px: buddy.px
-    x: buddy.px * 2 + buddy.shake
-    y: buddy.px * 5 + buddy.hop
-    palette: buddy.palette
-    rows: Sprites.buddy(buddy.eyeKey, buddy.mouthKey, buddy.screenKey, buddy.eyeShift)
+  // ---------- idle fidgets (chill only) ----------
+  readonly property var fidgets: ["look", "stretch", "yawn", "blip", "wiggle", "beep"]
+  readonly property var fidgetLength: ({ look: 2800, stretch: 2600, yawn: 2600, blip: 3300, wiggle: 2000, beep: 1800 })
+  property string fidget: ""
+  property real fidgetStart: 0
+  Timer {
+    interval: 9000
+    running: buddy.active && buddy.mood === "chill" && !buddy.grooving && buddy.screenKey === ""
+      && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered
+    onTriggered: {
+      buddy.fidget = buddy.fidgets[Math.floor(Math.random() * buddy.fidgets.length)]
+      buddy.fidgetStart = buddy.clock
+      fidgetEnd.interval = buddy.fidgetLength[buddy.fidget]
+      fidgetEnd.restart()
+      interval = 8000 + Math.floor(Math.random() * 7000)
+    }
+  }
+  Timer { id: fidgetEnd; onTriggered: buddy.fidget = "" }
+  onMoodChanged: if (fidget !== "" && mood !== "chill") { fidget = ""; fidgetEnd.stop() }
+  onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop() }
+
+  // ---------- reactions ----------
+  property real reactStart: 0
+  property real landStart: 0
+  Connections {
+    target: touch
+    function onSerialChanged() { buddy.reactStart = buddy.clock; buddy.fidget = "" }
+    function onLandingsChanged() { buddy.landStart = buddy.clock; landPlay.restart() }
+  }
+  // Landing: 0.3 s squash + dust, a little rebound, then a dizzy wobble.
+  Timer { id: landPlay; interval: 1500 }
+
+  PetTouch {
+    id: touch
+    anchors.fill: parent
+    active: buddy.active
+    place: buddy.place
+    window: buddy.window
   }
 
-  // Rising z's while dozing, notes while grooving, sweat / flame while
-  // stressed; whole-pixel steps.
+  readonly property var scene: Sprites.scene({
+    mood: buddy.mood,
+    t: buddy.clock,
+    wall: buddy.wall,
+    blink: buddy.blinking,
+    fidget: buddy.fidget,
+    fidgetT: buddy.clock - buddy.fidgetStart,
+    reaction: touch.reaction,
+    reactT: buddy.clock - buddy.reactStart,
+    hovered: touch.hovered,
+    lookX: touch.lookX,
+    lookY: touch.lookY,
+    dragged: touch.dragged,
+    lean: touch.lean,
+    landT: landPlay.running && !touch.dragged ? buddy.clock - buddy.landStart : -1,
+    grooving: buddy.grooving,
+    beat: Math.floor(buddy.wall * 4),
+    screenKey: buddy.screenKey
+  }, PetFx)
+
+  readonly property var bodyPalette: colors.extend({ "L": colors.accent })
+  readonly property var fxPalettes: ({
+    "o": colors.fx(colors.fg),
+    "r": colors.fx(colors.urgent),
+    "k": colors.fx(colors.base.k),
+    "l": colors.fx(colors.base.l),
+    "w": colors.fx(colors.base.w),
+    "p": colors.fx(colors.base.p)
+  })
+  readonly property var none: []
+
+  PixelSprite {
+    px: buddy.px
+    x: 2 * buddy.px
+    y: 35 * buddy.px
+    palette: colors.base
+    rows: buddy.scene.shadow
+  }
+
+  PixelSprite {
+    px: buddy.px
+    x: buddy.scene.x * buddy.px
+    y: buddy.scene.y * buddy.px
+    palette: buddy.bodyPalette
+    rows: buddy.scene.rows
+  }
+
   Repeater {
-    model: 2
+    model: 6
     PixelSprite {
       required property int index
-      readonly property real phase: buddy.sleepy
-        ? ((buddy.wall * 0.35 + index * 0.5) % 1 + 1) % 1
-        : ((buddy.clock * (buddy.grooving ? 0.7 : 0.8) + index * 0.5) % 1 + 1) % 1
-      px: 2
-      palette: buddy.sleepy ? buddy.zedPalette : buddy.fxPalette
-      rows: buddy.sleepy ? Sprites.zed : buddy.grooving ? Sprites.note
-        : buddy.mood === "hot" ? Sprites.flame : Sprites.drop
-      x: buddy.width - buddy.px * 4 + (index === 0 ? 0 : -buddy.px * 3) + Math.round(Math.sin(phase * 6.28)) * buddy.px
-      // z's, notes and flames rise, sweat falls.
-      y: buddy.sleepy || buddy.grooving || buddy.mood === "hot"
-        ? Math.round((buddy.px * 9 - phase * buddy.px * 9) / buddy.px) * buddy.px
-        : Math.round((buddy.px * 2 + phase * buddy.px * 7) / buddy.px) * buddy.px
-      opacity: (buddy.sleepy || buddy.stressed || buddy.grooving)
-        ? (phase < 0.8 ? 1 : 0) * (buddy.sleepy ? 0.6 : 1) : 0
+      readonly property var fx: index < buddy.scene.fx.length ? buddy.scene.fx[index] : null
+      visible: !!fx
+      px: buddy.px
+      x: fx ? fx.x * buddy.px : 0
+      y: fx ? fx.y * buddy.px : 0
+      opacity: fx ? fx.op : 0
+      palette: fx ? buddy.fxPalettes[fx.c] : buddy.fxPalettes.o
+      rows: fx ? fx.rows : buddy.none
     }
   }
 }

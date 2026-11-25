@@ -2,7 +2,9 @@ import QtQuick
 
 // Sprite from rows of characters, one px-sized square per character. Drawn
 // into a single Canvas texture and repainted only when the frame or palette
-// actually changes, so a still cat costs nothing per frame.
+// actually changes. Horizontal runs of one colour are merged into a single
+// fillRect, so a detailed 44x38 pet stays at a few dozen rects per repaint.
+// Canonical copy: shared/PixelSprite.qml (desk-pets repo) -- copy verbatim.
 Canvas {
   id: sprite
   property var rows: []
@@ -19,11 +21,17 @@ Canvas {
     return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + c.a + ")"
   }
 
-  onRowsChanged: requestPaint()
-  onPaletteChanged: requestPaint()
-  onWidthChanged: requestPaint()
-  onHeightChanged: requestPaint()
-  onAvailableChanged: if (available) requestPaint()
+  // Hidden sprites (visible false or opacity 0, e.g. an effect that isn't
+  // playing) never repaint; a change while hidden is painted when shown.
+  readonly property bool shown: visible && opacity > 0
+  property bool dirty: true
+  function refresh() { if (shown && available) { dirty = false; requestPaint() } else dirty = true }
+  onRowsChanged: refresh()
+  onPaletteChanged: refresh()
+  onWidthChanged: refresh()
+  onHeightChanged: refresh()
+  onAvailableChanged: if (dirty) refresh()
+  onShownChanged: if (dirty) refresh()
   onPaint: {
     var ctx = getContext("2d")
     ctx.clearRect(0, 0, width, height)
@@ -32,11 +40,17 @@ Canvas {
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r]
       if (!row) continue
-      for (var c = 0; c < row.length; c++) {
-        var f = fills[row.charAt(c)]
-        if (!f) continue
-        ctx.fillStyle = f
-        ctx.fillRect(c * px, r * px, px, px)
+      var c = 0
+      while (c < row.length) {
+        var ch = row.charAt(c)
+        var run = 1
+        while (c + run < row.length && row.charAt(c + run) === ch) run++
+        var f = fills[ch]
+        if (f) {
+          ctx.fillStyle = f
+          ctx.fillRect(c * px, r * px, run * px, px)
+        }
+        c += run
       }
     }
   }
