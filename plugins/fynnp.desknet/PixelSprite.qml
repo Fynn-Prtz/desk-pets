@@ -2,7 +2,9 @@ import QtQuick
 
 // Sprite from rows of characters, one px-sized square per character. Drawn
 // into a single Canvas texture and repainted only when the frame or palette
-// actually changes, so a still cat costs nothing per frame.
+// actually changes. Horizontal runs of one colour are merged into a single
+// fillRect, so a detailed 44x38 pet stays at a few dozen rects per repaint.
+// Canonical copy: shared/PixelSprite.qml (desk-pets repo) -- copy verbatim.
 Canvas {
   id: sprite
   property var rows: []
@@ -32,11 +34,17 @@ Canvas {
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r]
       if (!row) continue
-      for (var c = 0; c < row.length; c++) {
-        var f = fills[row.charAt(c)]
-        if (!f) continue
-        ctx.fillStyle = f
-        ctx.fillRect(c * px, r * px, px, px)
+      var c = 0
+      while (c < row.length) {
+        var ch = row.charAt(c)
+        var run = 1
+        while (c + run < row.length && row.charAt(c + run) === ch) run++
+        var f = fills[ch]
+        if (f) {
+          ctx.fillStyle = f
+          ctx.fillRect(c * px, r * px, run * px, px)
+        }
+        c += run
       }
     }
   }
