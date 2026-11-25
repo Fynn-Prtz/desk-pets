@@ -269,13 +269,14 @@ Item {
   function watts(v) { return v >= 0 ? fmt(Math.round(v), 0) + " W" : "" }
   function join(a, b) { return a && b ? a + "  ·  " + b : (a || b) }
 
-  // Pixel buddy clock: only ticks while visible and something is animating.
+  // Pixel buddy clock (seconds): only ticks while visible and something is
+  // animating; 4 fps, 8 fps while a touch reaction / drag / landing plays.
   property real clock: 0
   Timer {
-    interval: 250
+    interval: buddy.fast ? 125 : 250
     repeat: true
     running: root.active && (root.mood !== "chill" || buddy.moving)
-    onTriggered: root.clock += 0.25
+    onTriggered: root.clock += interval / 1000
   }
 
   // Mood bus to the other desk cards. While covered the feed is paused and
@@ -312,8 +313,15 @@ Item {
     WlrLayershell.layer: place.wlrLayer
     WlrLayershell.keyboardFocus: place.keyboardFocus
     exclusionMode: ExclusionMode.Ignore
-    // Nothing to click: let the pointer fall through to the desktop.
-    mask: place.editing ? place.editMask : place.noInput
+    // Only the pet takes input (petting); the rest falls through to the desktop.
+    mask: place.editing ? place.editMask : petRegion
+    Region {
+      id: petRegion
+      x: buddy.touch.maskRect.x
+      y: buddy.touch.maskRect.y
+      width: buddy.touch.maskRect.width
+      height: buddy.touch.maskRect.height
+    }
 
     // Placement + edit mode; see docs/DESKPLACE.md in the desk-pets repo.
     DeskPlace {
@@ -359,10 +367,12 @@ Item {
 
           PixelBuddy {
             id: buddy
-            px: 4
+            px: 2
             mood: root.mood
             clock: root.clock
             active: root.active
+            place: place
+            window: win.contentItem
             catMood: link.peers.cat || ""
             gamerMood: link.peers.gamer || ""
           }
