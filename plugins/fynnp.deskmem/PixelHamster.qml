@@ -194,12 +194,18 @@ Item {
 
   // ---------- effects (whole-cell positions; cells -> px) ----------
   // A fx sprite: visible only in its state; rows change only between frames.
+  // Hidden effects hold one constant empty frame, so they never repaint.
+  readonly property var none: []
+  readonly property var dustRight: [Fx.mirror(Fx.dust[0]), Fx.mirror(Fx.dust[1])]
+  readonly property var effortLeft: Fx.mirror(Fx.effort)
   component FxSprite: PixelSprite {
     property real cx: 0
     property real cy: 0
+    property var art: []
     px: pet.px
     x: Math.round(cx) * pet.px
     y: Math.round(cy) * pet.px
+    rows: visible ? art : pet.none
   }
 
   readonly property real tReact: clock - reactT0
@@ -214,7 +220,7 @@ Item {
       visible: pet.sleeping && ph < 0.85
       opacity: 0.6
       palette: pet.fxFg
-      rows: index === 0 ? Fx.zed : Fx.zedSmall
+      art: index === 0 ? Fx.zed : Fx.zedSmall
       cx: 33 + index * 3 + Math.round(Math.sin(ph * 6.28))
       cy: 14 - ph * 13
     }
@@ -228,7 +234,7 @@ Item {
       readonly property real ph: (pet.tReact - index * 0.45) / 1.3
       visible: touch.reaction === "pet" && ph >= 0 && ph < 1
       palette: pet.fxHeart
-      rows: index === 0 ? Fx.heart : Fx.heartSmall
+      art: index === 0 ? Fx.heart : Fx.heartSmall
       cx: (index === 0 ? 34 : 4) + Math.round(Math.sin(ph * 9))
       cy: (index === 0 ? 10 : 12) - ph * 10
     }
@@ -238,7 +244,7 @@ Item {
   FxSprite {
     visible: touch.reaction === "annoyed"
     palette: pet.fxHot
-    rows: Fx.anger
+    art: Fx.anger
     cx: pet.fstep % 4 < 2 ? 35 : 36
     cy: pet.fstep % 4 < 2 ? 2 : 1
   }
@@ -247,7 +253,7 @@ Item {
   FxSprite {
     visible: touch.reaction === "squish"
     palette: pet.fxFg
-    rows: Fx.sparkle[pet.fstep % 4 < 2 ? 0 : 1]
+    art: Fx.sparkle[pet.fstep % 4 < 2 ? 0 : 1]
     cx: 36
     cy: 10
   }
@@ -256,7 +262,7 @@ Item {
   FxSprite {
     visible: touch.dragged
     palette: pet.fxHot
-    rows: Fx.bang
+    art: Fx.bang
     cx: 39
     cy: pet.fstep % 6 < 3 ? 2 : 1
   }
@@ -266,7 +272,7 @@ Item {
     visible: touch.landing && pet.clock - pet.landT0 < 0.5
     palette: pet.fxFg
     opacity: 0.6
-    rows: Fx.dust[pet.clock - pet.landT0 < 0.25 ? 0 : 1]
+    art: Fx.dust[pet.clock - pet.landT0 < 0.25 ? 0 : 1]
     cx: 5
     cy: 32
   }
@@ -274,7 +280,7 @@ Item {
     visible: touch.landing && pet.clock - pet.landT0 < 0.5
     palette: pet.fxFg
     opacity: 0.6
-    rows: Fx.mirror(Fx.dust[pet.clock - pet.landT0 < 0.25 ? 0 : 1])
+    art: pet.dustRight[pet.clock - pet.landT0 < 0.25 ? 0 : 1]
     cx: 33
     cy: 32
   }
@@ -287,7 +293,7 @@ Item {
       readonly property real ph: ((pet.wall * 0.7 + index * 0.5) % 1 + 1) % 1
       visible: pet.grooving && ph < 0.8
       palette: pet.fxFg
-      rows: index === 0 ? Fx.note : Fx.noteDouble
+      art: index === 0 ? Fx.note : Fx.noteDouble
       cx: index === 0 ? 35 + Math.round(Math.sin(ph * 6.28)) : 2 + Math.round(Math.sin(ph * 6.28))
       cy: 12 - ph * 10
     }
@@ -305,7 +311,7 @@ Item {
       visible: (pet.showStruggle && (index === 0 || pet.mood === "critical") && ph < 0.85)
         || (touch.dragged && index === 0 && ph < 0.85)
       palette: pet.fxSweat
-      rows: Fx.sweat
+      art: Fx.sweat
       cx: index === 0 ? 35 + ph * 2 : 4 - ph * 2
       cy: 7 + ph * 8
     }
@@ -315,19 +321,19 @@ Item {
   FxSprite {
     visible: pet.showStruggle && pet.mood === "strain" && pet.step % 2 === 0
     palette: pet.fxFg
-    rows: Fx.effort
+    art: Fx.effort
     cx: 39
     cy: 2
   }
   FxSprite {
     visible: pet.showStruggle && pet.mood === "strain" && pet.step % 2 === 0
     palette: pet.fxFg
-    rows: Fx.mirror(Fx.effort)
+    art: pet.effortLeft
     cx: 1
     cy: 2
   }
 
-  // Critical: red steam puffs, a dizzy spiral, chips spilling from the pouches.
+  // Critical: red steam puffs, a dizzy spiral, chips spilling out of its mouth.
   Repeater {
     model: 2
     FxSprite {
@@ -336,7 +342,7 @@ Item {
       visible: pet.showStruggle && pet.mood === "critical" && fr < 3
       palette: pet.fxHot
       opacity: fr === 2 ? 0.6 : 0.9
-      rows: Fx.puff[fr]
+      art: Fx.puff[Math.min(fr, 2)]
       cx: index === 0 ? 34 + fr : 6 - fr * 2
       cy: 4 - fr * 2
     }
@@ -344,7 +350,7 @@ Item {
   FxSprite {
     visible: pet.showStruggle && pet.mood === "critical"
     palette: pet.fxHot
-    rows: Fx.spiral[pet.step % 2]
+    art: Fx.spiral[pet.step % 2]
     cx: 36
     cy: 12
   }
@@ -356,9 +362,9 @@ Item {
       readonly property int dir: index === 0 ? -1 : 1
       visible: pet.showStruggle && pet.mood === "critical" && ph < 0.95
       palette: pet.pal
-      rows: Sprites.chip
-      cx: (index === 0 ? 8 : 29) + dir * ph * 6
-      cy: 20 + ph * ph * 13
+      art: Sprites.chip
+      cx: (index === 0 ? 15 : 22) + dir * ph * 13
+      cy: 21 + ph * ph * 12
     }
   }
 
