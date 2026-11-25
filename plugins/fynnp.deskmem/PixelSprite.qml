@@ -21,11 +21,17 @@ Canvas {
     return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + c.a + ")"
   }
 
-  onRowsChanged: requestPaint()
-  onPaletteChanged: requestPaint()
-  onWidthChanged: requestPaint()
-  onHeightChanged: requestPaint()
-  onAvailableChanged: if (available) requestPaint()
+  // Hidden sprites (visible false or opacity 0, e.g. an effect that isn't
+  // playing) never repaint; a change while hidden is painted when shown.
+  readonly property bool shown: visible && opacity > 0
+  property bool dirty: true
+  function refresh() { if (shown && available) { dirty = false; requestPaint() } else dirty = true }
+  onRowsChanged: refresh()
+  onPaletteChanged: refresh()
+  onWidthChanged: refresh()
+  onHeightChanged: refresh()
+  onAvailableChanged: if (dirty) refresh()
+  onShownChanged: if (dirty) refresh()
   onPaint: {
     var ctx = getContext("2d")
     ctx.clearRect(0, 0, width, height)
