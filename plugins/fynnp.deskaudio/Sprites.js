@@ -128,11 +128,11 @@ function shader(base, hiRight) {
 //
 // A pose is a flat object; its key is the fields joined with "|".
 var FIELDS = ["body", "lift", "hx", "hy", "face", "eyes", "lx", "ly", "brow",
-              "mouth", "blush", "ears", "paws", "tail", "puff", "lean", "breath"]
+              "mouth", "blush", "ears", "paws", "tail", "puff", "lean", "breath", "hp"]
 
 function pose(over) {
   var p = { body: "sit", lift: 0, hx: 0, hy: 0, face: "f", eyes: "open", lx: 0, ly: 0, brow: "-",
-            mouth: "w", blush: 1, ears: "n", paws: "down", tail: "rest", puff: 0, lean: 0, breath: 0 }
+            mouth: "w", blush: 1, ears: "n", paws: "down", tail: "rest", puff: 0, lean: 0, breath: 0, hp: "on" }
   if (over) for (var k in over) p[k] = over[k]
   return p
 }
@@ -496,6 +496,11 @@ function build(p) {
     }
   }
 
+  // -- DJ headphones: on the head (ears poke out above the band), or slipped
+  // round the neck while it sleeps
+  if (p.hp === "on") drawPhonesOn(g, hcx, hcy, hrx, hry, floorY)
+  else if (p.hp === "neck") drawPhonesNeck(g, hcx, hcy, hrx, hry, floorY)
+
   // -- raised paws in front of the body and face
   for (var ri = 0; ri < raised.length; ri++) {
     var rk = raised[ri]
@@ -524,6 +529,45 @@ function build(p) {
   var out = []
   for (var y5 = 0; y5 < H; y5++) out.push(g[y5].join(""))
   return out
+}
+
+// Headphone cup: dark shell, pink cushion ring peeking at the head side, a
+// glint on the shell.
+function drawCup(g, cx, cy, side, rx, ry, floorY) {
+  layer(g, function(x, y) { return ell(x, y, cx, cy, rx, ry) }, function(x, y, inside) {
+    var up = y === 0 || !inside[y - 1][x]
+    var inner = side < 0 ? x + 0.5 > cx + rx - 1.2 : x + 0.5 < cx - rx + 1.2
+    if (inner) return "p"
+    if (up) return "d"
+    if (ell(x, y, cx - side * 0.4, cy - 0.6, 0.9, 1.2)) return "x"
+    return "e"
+  }, floorY)
+}
+
+function arc(cx, cy, rx, ry, a0, a1, n) {
+  var pts = []
+  for (var i = 0; i <= n; i++) {
+    var a = (a0 + (a1 - a0) * i / n) * Math.PI / 180
+    pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry])
+  }
+  return pts
+}
+
+function drawPhonesOn(g, hcx, hcy, hrx, hry, floorY) {
+  var band = arc(hcx, hcy + 0.4, hrx - 0.4, hry + 0.6, 196, 344, 14)
+  layer(g, function(x, y) { return polyHit(band, x, y).d <= 0.85 }, function(x, y, inside) {
+    return (y === 0 || !inside[y - 1][x]) ? "d" : "e"
+  }, floorY)
+  drawCup(g, hcx - hrx + 0.2, hcy + 0.8, -1, 2.5, 3.5, floorY)
+  drawCup(g, hcx + hrx - 0.2, hcy + 0.8, 1, 2.5, 3.5, floorY)
+}
+
+function drawPhonesNeck(g, hcx, hcy, hrx, hry, floorY) {
+  var cy = hcy + hry - 0.6
+  var band = arc(hcx, cy - 1.4, 7.6, 2.4, 20, 160, 10)
+  layer(g, function(x, y) { return polyHit(band, x, y).d <= 0.8 }, "e", floorY)
+  drawCup(g, hcx - 7.8, cy, -1, 2.2, 2.6, floorY)
+  drawCup(g, hcx + 7.8, cy, 1, 2.2, 2.6, floorY)
 }
 
 function emptyRow() { var r = []; for (var x = 0; x < W; x++) r.push("."); return r }
@@ -608,7 +652,7 @@ function danceMove(s) {
   var section = Math.floor(b / 16)     // a move lasts two bars (4 s)
   var tier = s.tier
   if (tier <= 0) return DANCE_GENTLE[section % DANCE_GENTLE.length]
-  if (tier >= 4 && section % 4 === 3) return "dizzy"
+  if (tier >= 4 && section % 4 === 3) return "roof"
   if (tier >= 3 && section % 2 === 0) return "bang"
   return DANCE_MOVES[section % DANCE_MOVES.length]
 }
@@ -695,29 +739,27 @@ function dance(s, out) {
     break
   case "bang":
     // headbanging: head slams down on the beat, flies back up between
-    p.hy = beat ? 3 : -1
-    p.eyes = beat ? "strain" : "happy"
-    p.ears = beat ? "flat" : "perk"
-    p.mouth = beat ? "grit" : "sing"
+    p.hy = beat ? 2 : -1
+    p.eyes = "happy"
+    p.ears = beat ? "n" : "perk"
+    p.mouth = beat ? "smile" : "sing"
     p.paws = beat ? "down" : (b % 4 === 1 ? "waveL2" : "waveR2")
     p.lift = beat ? 0 : 1
     p.tail = beat ? "swR" : "midL"
-    p.puff = 1
     out.dx = beat ? 0 : (b % 4 === 1 ? -1 : 1)
     break
-  case "dizzy":
-    p.eyes = "dizzy"
-    p.mouth = "wobble"
-    p.ears = "droop"
-    p.hx = [0, 1, 1, 0, 0, -1, -1, 0][i]
-    p.hy = 1
-    p.tail = "rest"
-    out.dx = [0, 1, 0, -1, 0, 1, 0, -1][i]
+  case "roof":
+    // raise the roof: paws pumping overhead, big happy hops
+    p.paws = beat ? "up2" : "up"
+    p.lift = beat ? 2 : 0
+    p.mouth = "sing"
+    p.ears = "perk"
+    p.tail = beat ? "up" : "swR"
     break
   }
 
   // hover: open eyes and watch the pointer while dancing
-  if (s.hov && p.face === "f" && move !== "bang" && move !== "dizzy") {
+  if (s.hov && p.face === "f" && move !== "bang" && move !== "roof") {
     p.eyes = "open"; p.lx = s.lx; p.ly = s.ly
   }
 
@@ -728,17 +770,12 @@ function dance(s, out) {
     var f = riser(k === 1 ? "noteDouble" : k === 2 ? "noteSmall" : "note", s.t * spd + k / nN, 36 - k * 3, 14 + k, 14, 1, k === 2 ? "w" : "o")
     if (f) out.fx.push(f)
   }
-  if (move === "bang" || (tier >= 3 && amp >= 2)) {
-    // sweat flies off, sparkles pop
+  if (tier >= 3) {
+    // the louder, the more party: sparkles pop around, hearts at max
     var sp = b % 3
-    out.fx.push({ n: "sweat", x: beat ? 31 : 32, y: beat ? 9 : 6, c: "l", o: 1 })
-    out.fx.push({ n: "sweatL", x: beat ? 4 : 3, y: beat ? 10 : 7, c: "l", o: 1 })
-    out.fx.push({ n: b % 2 ? "sparkle1" : "sparkle0", x: [2, 37, 6][sp], y: [3, 2, 25][sp], c: "o", o: 1 })
-    if (beat) out.fx.push({ n: "effort", x: 0, y: 16, c: "o", o: 1 })
-  }
-  if (move === "dizzy") {
-    out.fx.push({ n: "spiral" + (b % 2), x: 15 + p.hx, y: 0, c: "o", o: 1 })
-    out.fx.push({ n: "puff" + (b % 3), x: 33, y: 4 - (b % 3), c: "o", o: 0.7 })
+    out.fx.push({ n: b % 2 ? "sparkle1" : "sparkle0", x: [2, 37, 6][sp], y: [3, 2, 24][sp], c: "o", o: 1 })
+    out.fx.push({ n: b % 2 ? "sparkle0" : "sparkle1", x: [38, 3, 36][sp], y: [24, 14, 12][sp], c: "w", o: 1 })
+    if (tier >= 4 && beat) out.fx.push({ n: "heartSmall", x: 1, y: 6 - (b % 4), c: "r", o: 1 })
   }
   return p
 }
@@ -802,7 +839,7 @@ function drowsy(s, out) {
 }
 
 function sleep(s, out) {
-  var p = pose({ body: "loaf", eyes: "sleep", ears: "droop", tail: "wrap", paws: "tuck" })
+  var p = pose({ body: "loaf", eyes: "sleep", ears: "droop", tail: "wrap", paws: "tuck", hp: "neck" })
   p.breath = (s.t % 24) < 8 ? 1 : 0
   var tw = s.t % 60
   if (tw < 3) p.ears = "twL"
@@ -850,7 +887,6 @@ function scene(s) {
     p.blush = 2
     p.mouth = "w"
     if (!asleep && rt >= 1 && rt <= 2) p.lift = 1
-    if (s.mode === "dance" && s.tier >= 3) { p.mouth = "grit"; out.fx.push({ n: "sweat", x: 31, y: 8 + (rt % 3), c: "l", o: 1 }) }
     out.dx = rt > 2 && rt % 2 ? 1 : 0   // purr vibration
     out.fx.push({ n: "purr", x: 1, y: asleep ? 24 : 19 + (rt % 2), c: "w", o: 1 })
     out.fx.push({ n: "purrR", x: 37, y: asleep ? 24 : 20 - (rt % 2), c: "w", o: 1 })
