@@ -7,8 +7,9 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 
-// Desk Memory: the system card's sibling. What's eating the RAM, per app, as a
-// pixel-art pie with a legend, on the desktop layer.
+// Desk Memory: the system card's sibling. A pixel hamster that hoards RAM in
+// its cheeks, and what's eating the RAM per app as a pixel-art pie with a
+// legend, on the desktop layer.
 //
 // Data comes from ~/.local/bin/deskmem-feed (Rust, source in helpers/deskmem-feed of the desk-pets repo):
 // it blocks on stdin and answers one JSON line per request, so it costs nothing
@@ -187,6 +188,7 @@ Item {
   property real memFree: 0
   property real memOther: 0
   property var apps: []
+  property bool growing: false
 
   function num(v) {
     var n = Number(v)
@@ -205,7 +207,10 @@ Item {
       list.push({ name: n || "?", mib: num(a[i].m) })
     }
     memTotal = num(d.t)
+    var prevUsed = memUsed
     memUsed = Math.min(memTotal, num(d.u))
+    // Growing: more than 1 % of RAM gone since the last sample.
+    growing = ready && memTotal > 0 && memUsed - prevUsed > memTotal * 0.01
     memFree = Math.min(memTotal, num(d.f))
     memOther = num(d.o)
     // Only hand the views a new list when something they show changed.
@@ -238,6 +243,31 @@ Item {
   // ---------- derived ----------
   readonly property real usedFraction: memTotal > 0 ? memUsed / memTotal : 0
   readonly property bool critical: usedFraction > 0.9
+
+  // Hamster ladder. Growing memory wakes it / gets it stuffing early.
+  readonly property string petMood: {
+    var u = usedFraction
+    if (!ready) return "sleep"
+    if (u < 0.35) return growing ? "calm" : "sleep"
+    if (u < 0.6) return growing ? "busy" : "calm"
+    if (u < 0.8) return "busy"
+    if (u < 0.9) return "strain"
+    return "critical"
+  }
+
+  // Pet clock: only ticks while visible and something animates (a calm
+  // hamster just blinks on its own timer). 8 fps only during reactions.
+  property real clock: 0
+  Timer {
+    interval: hamster.touch.busy ? 125 : 250
+    repeat: true
+    running: root.active && (root.petMood !== "calm" || hamster.moving)
+    onTriggered: root.clock += interval / 1000
+  }
+
+  // Read-only view of the mood bus (no name = publishes nothing), so the
+  // hamster can groove when the audio card's cat dances.
+  DeskLink { id: link }
 
   // Slice colours, all from the theme: accent first, then tints of
   // accent / foreground / urgent; "other" is a quiet foreground; "free" is
@@ -304,8 +334,15 @@ Item {
     WlrLayershell.layer: place.wlrLayer
     WlrLayershell.keyboardFocus: place.keyboardFocus
     exclusionMode: ExclusionMode.Ignore
-    // Nothing to click: let the pointer fall through to the desktop.
-    mask: place.editing ? place.editMask : place.noInput
+    // Only the hamster takes input; the rest falls through to the desktop.
+    mask: place.editing ? place.editMask : petRegion
+    Region {
+      id: petRegion
+      x: hamster.touch.maskRect.x
+      y: hamster.touch.maskRect.y
+      width: hamster.touch.maskRect.width
+      height: hamster.touch.maskRect.height
+    }
 
     // Placement + edit mode; see docs/DESKPLACE.md in the desk-pets repo.
     DeskPlace {
@@ -344,19 +381,25 @@ Item {
         width: card.width - card.borderLeft - card.borderRight - root.pad * 2
         spacing: Style.space(10)
 
-        // ---- pie + status ----
+        // ---- hamster + status ----
         Item {
           width: parent.width
-          height: pie.height
+          height: hamster.height
 
-          PixelPie {
-            id: pie
-            fractions: root.pieFractions
-            colors: root.pieColors
+          PixelHamster {
+            id: hamster
+            px: 2
+            mood: root.petMood
+            fill: root.usedFraction
+            clock: root.clock
+            active: root.active
+            catMood: link.peers.cat || ""
+            place: place
+            window: win.contentItem
           }
 
           Column {
-            anchors.left: pie.right
+            anchors.left: hamster.right
             anchors.leftMargin: Style.space(10)
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
@@ -400,47 +443,64 @@ Item {
 
         PanelSeparator { width: parent.width; visible: root.ready }
 
-        // ---- legend: one row per slice ----
-        Column {
+        // ---- the pie (the showpiece) with its legend beside it ----
+        Item {
           width: parent.width
+          height: Math.max(pie.height, legend.implicitHeight)
           visible: root.ready
 
-          Repeater {
-            model: root.apps
-            LegendRow {
-              required property var modelData
-              required property int index
-              width: parent.width
-              swatch: root.appColors[index % root.appColors.length]
-              label: modelData.name
-              detail: root.size(modelData.mib)
-              fraction: root.frac(modelData.mib)
+          PixelPie {
+            id: pie
+            anchors.verticalCenter: parent.verticalCenter
+            cells: 32
+            fractions: root.pieFractions
+            colors: root.pieColors
+          }
+
+          Column {
+            id: legend
+            anchors.left: pie.right
+            anchors.leftMargin: Style.space(12)
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+
+            Repeater {
+              model: root.apps
+              LegendRow {
+                required property var modelData
+                required property int index
+                width: parent.width
+                swatch: root.appColors[index % root.appColors.length]
+                label: modelData.name
+                detail: root.size(modelData.mib)
+                fraction: root.frac(modelData.mib)
+              }
             }
-          }
-        }
 
-        PanelSeparator { width: parent.width; visible: root.ready }
+            // Quiet break between the apps and the rest.
+            Item {
+              width: parent.width
+              height: 7
+              PanelSeparator { anchors.verticalCenter: parent.verticalCenter; width: parent.width }
+            }
 
-        Column {
-          width: parent.width
-          visible: root.ready
-
-          LegendRow {
-            width: parent.width
-            swatch: root.otherColor
-            label: strings.t("other", "Other")
-            detail: root.size(root.memOther)
-            fraction: root.frac(root.memOther)
-            dim: true
-          }
-          LegendRow {
-            width: parent.width
-            // The pie's free cells (fg@0.07) would vanish as a lone swatch; a bit stronger.
-            swatch: Util.alpha(Commons.Color.foreground, 0.15)
-            label: strings.t("free", "Free")
-            detail: root.size(root.memFree)
-            fraction: root.frac(root.memFree)
-            dim: true
+            LegendRow {
+              width: parent.width
+              swatch: root.otherColor
+              label: strings.t("other", "Other")
+              detail: root.size(root.memOther)
+              fraction: root.frac(root.memOther)
+              dim: true
+            }
+            LegendRow {
+              width: parent.width
+              // The pie's free cells (fg@0.07) would vanish as a lone swatch; a bit stronger.
+              swatch: Util.alpha(Commons.Color.foreground, 0.15)
+              label: strings.t("free", "Free")
+              detail: root.size(root.memFree)
+              fraction: root.frac(root.memFree)
+              dim: true
+            }
           }
         }
       }

@@ -2,8 +2,9 @@ import QtQuick
 import qs.Commons
 import qs.Commons as Commons
 
-// One pie slice in the legend, laid out like StatRow's 22 px row: colour
-// swatch in the glyph slot, name, size, percentage.
+// One pie slice in the legend beside the pie: a compact StatRow-style row
+// (20 px, narrower glyph slot and percentage column so names keep room):
+// colour swatch, name, size, percentage.
 Item {
   id: row
   property color swatch: Commons.Color.accent
@@ -13,15 +14,15 @@ Item {
   property bool dim: false       // "other" / "free": quieter name
 
   width: parent ? parent.width : 300
-  height: 22
+  height: 20
 
   // Square block cell, centred in the 18 px glyph column.
   Item {
     id: g
     anchors.left: parent.left
-    anchors.leftMargin: 4
+    anchors.leftMargin: 1
     anchors.verticalCenter: parent.verticalCenter
-    width: 18
+    width: 14
     height: 18
     Rectangle {
       anchors.centerIn: parent
@@ -34,7 +35,7 @@ Item {
   DaText {
     id: name
     anchors.left: g.right
-    anchors.leftMargin: 8
+    anchors.leftMargin: 6
     anchors.right: amount.left
     anchors.rightMargin: 8
     anchors.verticalCenter: parent.verticalCenter
@@ -49,6 +50,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     horizontalAlignment: Text.AlignRight
     elide: Text.ElideNone
+    width: implicitWidth
     text: row.detail
     font.pixelSize: Style.font.caption
     opacity: 0.6
@@ -58,7 +60,7 @@ Item {
     anchors.right: parent.right
     anchors.rightMargin: 2
     anchors.verticalCenter: parent.verticalCenter
-    width: 38
+    width: 32
     horizontalAlignment: Text.AlignRight
     text: Math.round(Math.max(0, row.fraction) * 100) + "%"
     font.pixelSize: Style.font.bodySmall
