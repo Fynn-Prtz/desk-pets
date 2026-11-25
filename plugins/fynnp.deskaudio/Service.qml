@@ -340,12 +340,13 @@ Item {
   readonly property bool lively: level > 0.02
   property real clock: 0
 
-  // Slow tick so the sleeping cat's z's still drift with no audio frames.
+  // Slow tick (4 fps) so the cat keeps living with no audio frames; 8 fps
+  // only while a touch reaction, drag or landing plays. Adds seconds.
   Timer {
-    interval: 200
+    interval: cat.touch.busy ? 125 : 250
     repeat: true
     running: root.active && !frames.running
-    onTriggered: root.clock += 0.2
+    onTriggered: root.clock += interval / 1000
   }
 
   // Mood bus to the other desk cards (see DeskLink.qml).
@@ -517,7 +518,8 @@ Item {
 
           PixelCat {
             id: cat
-            px: 4
+            px: 2
+            place: place
             level: root.level
             playing: root.playing
             clock: root.clock
