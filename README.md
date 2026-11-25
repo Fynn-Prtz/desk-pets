@@ -104,7 +104,7 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `interval` | system | 1000 | Sensor poll interval in ms (only while visible) |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
-| `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 11 | Idle seconds, animation fps, pixel size |
+| `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 
 Dragged positions are stored in `~/.config/omarchy/desk-layout/<plugin>.json`. Right-click a card in layout
 mode to reset it.

@@ -23,7 +23,7 @@ import "Sprites.js" as Sprites
 // re-checked once a second while shown, so the saver gets out of the lock's way.
 //
 // Settings on this plugin's entry in ~/.config/omarchy/shell.json:
-//   { "id": "fynnp.catsaver", "timeout": 150, "fps": 8, "pixel": 11 }
+//   { "id": "fynnp.catsaver", "timeout": 150, "fps": 8, "pixel": 8 }
 //   timeout: idle seconds before showing (0 = never by itself; IPC still works)
 //   fps:     animation clock while shown (1–15)
 //   pixel:   sprite pixel size on a 1440-px-tall screen; scaled per screen
@@ -41,7 +41,7 @@ Item {
   // ---------- settings ----------
   property int timeout: 150
   property int fps: 8
-  property int pixel: 11
+  property int pixel: 8
 
   function clampInt(v, lo, hi, dflt) {
     var n = parseInt(v, 10)
@@ -60,7 +60,7 @@ Item {
     timeout = clampInt(entry.timeout, 0, 86400, 150)
     if (timeout > 0 && timeout < 10) timeout = 10
     fps = clampInt(entry.fps, 1, 15, 8)
-    pixel = clampInt(entry.pixel, 4, 24, 11)
+    pixel = clampInt(entry.pixel, 3, 24, 8)
   }
 
   FileView {
@@ -173,7 +173,11 @@ Item {
   readonly property var catPalette: ({
     "o": Commons.Color.foreground,
     "b": Commons.Color.accent,
-    "d": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.background, 0.35)),
+    "h": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.foreground, 0.45)),
+    "n": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.background, 0.2)),
+    "d": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.background, 0.4)),
+    "w": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.foreground, 0.7)),
+    "l": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.foreground, 0.85)),
     "p": Qt.tint(Commons.Color.accent, Util.alpha(Commons.Color.urgent, 0.55)),
     "e": Commons.Color.background,
     "s": Util.alpha(Commons.Color.foreground, 0.08)
@@ -185,14 +189,14 @@ Item {
   // Stars around the cat, in cat-pixel units from the cat's top-left corner.
   // period/offset in seconds: each sparkles for half a second, rarely.
   readonly property var stars: [
-    { x: -14, y: -16, period: 11, offset: 2 },
-    { x: -4, y: -27, period: 17, offset: 9 },
-    { x: 9, y: -12, period: 13, offset: 5 },
-    { x: 22, y: -22, period: 19, offset: 14 },
-    { x: 33, y: -11, period: 15, offset: 1 },
-    { x: 58, y: -6, period: 12, offset: 7 },
-    { x: 63, y: 8, period: 21, offset: 16 },
-    { x: -19, y: 3, period: 16, offset: 11 }
+    { x: -19, y: -22, period: 11, offset: 2 },
+    { x: -6, y: -37, period: 17, offset: 9 },
+    { x: 12, y: -17, period: 13, offset: 5 },
+    { x: 31, y: -31, period: 19, offset: 14 },
+    { x: 46, y: -15, period: 15, offset: 1 },
+    { x: 80, y: -8, period: 12, offset: 7 },
+    { x: 87, y: 11, period: 21, offset: 16 },
+    { x: -26, y: 4, period: 16, offset: 11 }
   ]
 
   // ---------- windows (exist only while shown) ----------
@@ -214,7 +218,7 @@ Item {
       // Same share of the screen on every monitor (logical pixels, so the
       // 1.25-scaled 1080p screen gets a proportionally sized cat).
       readonly property int px: Math.max(4, Math.round(root.pixel * modelData.height / 1440))
-      readonly property int zpx: Math.max(2, Math.round(px / 2))
+      readonly property int zpx: Math.max(2, Math.round(px * 0.69))   // keeps z/star size from the 11-px v1
 
       // Swallow every key: the first press only dismisses.
       Item {
@@ -249,7 +253,7 @@ Item {
         width: Sprites.cols * win.px
         height: Sprites.rowsCount * win.px
         x: Math.round((win.width - width) / 2 / win.px) * win.px
-        y: Math.round((win.height - height) / 2 / win.px) * win.px + win.px * 4
+        y: Math.round((win.height - height) / 2 / win.px) * win.px + win.px * 5
 
         Repeater {
           model: root.stars
@@ -269,8 +273,8 @@ Item {
 
         PixelSprite {
           px: win.px
-          x: 46 * win.px
-          y: -24 * win.px
+          x: 63 * win.px
+          y: -33 * win.px
           palette: root.moonPalette
           rows: Sprites.moon
         }
@@ -292,8 +296,8 @@ Item {
             px: win.zpx
             palette: root.zedPalette
             rows: Sprites.zed
-            x: 19 * win.px + Math.floor(rise / 3) * win.zpx + ((rise + index) % 4 < 2 ? 0 : win.zpx)
-            y: 3 * win.px - rise * win.zpx * 2
+            x: 25 * win.px + Math.floor(rise / 3) * win.zpx + ((rise + index) % 4 < 2 ? 0 : win.zpx)
+            y: 4 * win.px - rise * win.zpx * 2
             opacity: rise < 2 ? 0.35 : rise < 10 ? 0.7 : rise < 13 ? 0.35 : 0
           }
         }
