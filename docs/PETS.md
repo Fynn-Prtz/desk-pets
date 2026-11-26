@@ -84,12 +84,30 @@ A reaction overrides the mood animation while it plays, but a struggling pet kee
 - `pet.moving` (true while the pet needs frames although the mood would rest: grooving,
   `touch.busy`, an idle fidget in progress) keeps the clock running.
 
+## Pet settings (`pet`, `petReactions`, `petMotion`)
+
+Every pet has `property string motion` (`"full" | "calm" | "still"`) and `property bool reactions`, set by
+the card from its shell.json entry. Every feature must respect them, and turning them down must only
+remove work:
+
+- `full`: everything.
+- `calm`: no optional idle extras: no fidget timer, no neighbour moments (grooving to the cat, screen
+  signs, worried looks, future pet chat). Mood animations, blinks and responses to the user stay.
+- `still`: mood frames only. The card's clock Timer does not run (`&& petMotion !== "still"`), the pet runs
+  no Timer (no blinks, no fidgets). Bindings still follow touch: a click shows the reaction's first pose and
+  hover turns the eyes, with zero ticks.
+- `reactions: false` → PetTouch `reactions: false`: no hover, clicks, drag dangle or landing, and an empty
+  `maskRect` (click-through cards become fully click-through). `pet: false` hides the pet item
+  (`visible: false`, `active: false`, width 0) and the card's clock stays off; maskRect is empty then too.
+- Check: `tools/pet-settings-check/run.sh` (loads every real pet offscreen, counts running timers per mode).
+
 ## Card integration (each card)
 
 1. Copy `shared/{PixelSprite,PetColors,PetTouch,DeskPlace}.qml` and `shared/PetFx.js` into the plugin.
 2. In the pet component: `PetColors { id: colors }`, `PetTouch { id: touch; anchors.fill: parent;
-   active: …; place: …; window: … }`, expose `property alias touch: touch` and include
+   active: …; reactions: …; place: …; window: … }`, expose `property alias touch: touch` and include
    `touch.busy` in `moving`.
+
 3. Instantiate the pet with `px: 2`.
 4. Click-through cards (`mask` was `place.noInput`): add
    `Region { id: petRegion; x: pet.touch.maskRect.x; y: pet.touch.maskRect.y; width: pet.touch.maskRect.width; height: pet.touch.maskRect.height }`

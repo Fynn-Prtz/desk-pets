@@ -40,6 +40,13 @@ Item {
   // Edge visibility: 0 hides it, ~0.1 is a faint hairline.
   property real borderOpacity: 0.08
 
+  // Pet settings (README): pet false hides the cat (the card stays),
+  // petReactions false turns touch off (no petting, hover or drag dangle),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
+  property string petMotion: "full"
+
   function applySettings(raw) {
     var cfg = null
     try { cfg = JSON.parse(raw) } catch (e) { return }
@@ -48,6 +55,9 @@ Item {
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].id === "fynnp.deskaudio") { entry = list[i]; break }
     }
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
+    petMotion = ["full", "calm", "still"].indexOf(entry.petMotion) >= 0 ? entry.petMotion : "full"
     monitorName = typeof entry.monitor === "string" ? entry.monitor.slice(0, 64) : ""
     fallbackMonitor = typeof entry.fallbackMonitor === "string" ? entry.fallbackMonitor.slice(0, 64) : ""
     var as = parseFloat(entry.awayScale)
@@ -342,10 +352,11 @@ Item {
 
   // Slow tick (4 fps) so the cat keeps living with no audio frames; 8 fps
   // only while a touch reaction, drag or landing plays. Adds seconds.
+  // Only the cat needs it: off with pet false or petMotion still.
   Timer {
     interval: cat.touch.busy ? 125 : 250
     repeat: true
-    running: root.active && !frames.running
+    running: root.active && !frames.running && root.showPet && root.petMotion !== "still"
     onTriggered: root.clock += interval / 1000
   }
 
@@ -514,16 +525,22 @@ Item {
         // ---- pixel cat + now playing ----
         Item {
           width: parent.width
-          height: cat.height
+          height: root.showPet ? cat.height : Math.max(artFrame.visible ? artFrame.height : 0, catStatus.implicitHeight)
+
 
           PixelCat {
             id: cat
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
+            motion: root.petMotion
+            reactions: root.petReactions
             place: place
             level: root.level
             playing: root.playing
-            clock: root.clock
-            active: root.active
+            // still: a frozen clock, so the 30 fps bar frames don't re-run the cat
+            clock: root.petMotion === "still" ? 0 : root.clock
+            active: root.active && root.showPet
             buddyMood: link.peers.buddy || ""
             gamerMood: link.peers.gamer || ""
           }
@@ -531,7 +548,7 @@ Item {
           Item {
             id: artFrame
             anchors.left: cat.right
-            anchors.leftMargin: Style.space(4)
+            anchors.leftMargin: root.showPet ? Style.space(4) : 0
             anchors.verticalCenter: parent.verticalCenter
             width: root.trackArt ? 52 : 0
             height: 52
@@ -564,8 +581,10 @@ Item {
           }
 
           Column {
+            id: catStatus
             anchors.left: artFrame.visible ? artFrame.right : cat.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: artFrame.visible || root.showPet ? Style.space(10) : 0
+
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2

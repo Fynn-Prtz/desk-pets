@@ -22,6 +22,10 @@ import QtQuick
 // window's mask to `maskRect` (window coordinates, kept in sync here):
 //   Region { id: petRegion; x: pet.touch.maskRect.x; y: …; width: …; height: … }
 //   mask: place.editing ? place.editMask : petRegion
+//
+// `reactions: false` (the card's petReactions setting) switches all of it off:
+// no hover, clicks, drag dangle or landing, and maskRect is empty. maskRect is
+// also empty while the pet is hidden (the card's pet: false setting).
 Item {
   id: touch
 
@@ -29,14 +33,15 @@ Item {
   property bool active: true        // card visible (root.active)
   property var place: null          // the card's DeskPlace, for drag reactions
   property Item window: null        // win.contentItem, for maskRect
+  property bool reactions: true     // petReactions setting: false = no touch at all, empty maskRect
 
   // ---------- outputs ----------
   property string reaction: ""      // "" | "pet" | "annoyed" | "squish"
   property int serial: 0            // bumps on every new reaction (restart one-shot anims)
-  readonly property bool hovered: active && mouse.containsMouse
+  readonly property bool hovered: active && reactions && mouse.containsMouse
   property int lookX: 0             // -1 left, 0 centre, 1 right (only while hovered)
   property int lookY: 0             // -1 up, 0 centre, 1 down
-  readonly property bool dragged: !!place && place.dragging
+  readonly property bool dragged: reactions && !!place && place.dragging
   readonly property bool editing: !!place && place.editing
   property int lean: 0              // -1/0/1 while dragged: tilt against the motion
   property int landings: 0
@@ -57,7 +62,7 @@ Item {
   MouseArea {
     id: mouse
     anchors.fill: parent
-    enabled: touch.active && !touch.editing
+    enabled: touch.active && touch.reactions && !touch.editing
     hoverEnabled: enabled
     acceptedButtons: Qt.LeftButton
     cursorShape: Qt.PointingHandCursor
@@ -93,6 +98,7 @@ Item {
 
   // Leaving the screen (covered, hidden) drops whatever was playing.
   onActiveChanged: if (!active) { reaction = ""; reactionEnd.stop(); lean = 0 }
+  onReactionsChanged: { if (!reactions) { reaction = ""; reactionEnd.stop(); lean = 0 } Qt.callLater(syncMask) }
 
   // ---------- layout-mode drag ----------
   property real lastDragX: 0
@@ -104,7 +110,7 @@ Item {
         touch.lastDragX = touch.place.dragX
       } else {
         touch.lean = 0
-        if (touch.place.editing && touch.active) { touch.landings++; landTimer.restart() }
+        if (touch.place.editing && touch.active && touch.reactions) { touch.landings++; landTimer.restart() }
       }
     }
     function onDragXChanged() {
@@ -121,8 +127,11 @@ Item {
   Timer { id: landTimer; interval: 700 }
 
   // ---------- input mask ----------
+  // Hidden pet (pet: false) or reactions off: no input region, the card is
+  // fully click-through again.
   function syncMask() {
-    if (!window || !visible) return
+    if (!window) return
+    if (!visible || !reactions) { maskRect = Qt.rect(0, 0, 0, 0); return }
     var p = mapToItem(window, 0, 0)
     var q = mapToItem(window, width, height)
     maskRect = Qt.rect(Math.floor(p.x), Math.floor(p.y), Math.ceil(q.x - p.x), Math.ceil(q.y - p.y))

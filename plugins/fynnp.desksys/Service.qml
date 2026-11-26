@@ -38,6 +38,12 @@ Item {
   property real cardOpacity: 0.5
   property real borderOpacity: 0.08
   property int interval: 1000
+  // Pet settings (README): pet false hides the penguin (the card stays),
+  // petReactions false turns touch off (card fully click-through again),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
+  property string petMotion: "full"
 
   function applySettings(raw) {
     var cfg = null
@@ -60,6 +66,9 @@ Item {
     var bo = parseFloat(entry.borderOpacity)
     borderOpacity = isNaN(bo) ? 0.08 : Math.max(0, Math.min(1, bo))
     interval = clampInt(entry.interval, 500, 10000, 1000)
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
+    petMotion = ["full", "calm", "still"].indexOf(entry.petMotion) >= 0 ? entry.petMotion : "full"
   }
 
   function clampInt(v, lo, hi, dflt) {
@@ -275,7 +284,7 @@ Item {
   Timer {
     interval: buddy.fast ? 125 : 250
     repeat: true
-    running: root.active && (root.mood !== "chill" || buddy.moving)
+    running: root.active && root.showPet && root.petMotion !== "still" && (root.mood !== "chill" || buddy.moving)
     onTriggered: root.clock += interval / 1000
   }
 
@@ -363,14 +372,18 @@ Item {
         // ---- pixel buddy + status ----
         Item {
           width: parent.width
-          height: buddy.height
+          height: root.showPet ? buddy.height : buddyStatus.implicitHeight
 
           PixelBuddy {
             id: buddy
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
+            motion: root.petMotion
+            reactions: root.petReactions
             mood: root.mood
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             place: place
             window: win.contentItem
             catMood: link.peers.cat || ""
@@ -378,8 +391,10 @@ Item {
           }
 
           Column {
+            id: buddyStatus
             anchors.left: buddy.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
+
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2

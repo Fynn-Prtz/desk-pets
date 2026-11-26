@@ -22,6 +22,11 @@ import "PetFx.js" as Fx
 Item {
   id: pet
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property bool reactions: true    // petReactions setting: false = no touch, card click-through
+  // full: everything · calm: no fidgets, no groove with the cat · still: mood
+  // frames only, no blinks; the card stops its clock.
+  readonly property bool extras: motion === "full"
+  readonly property bool still: motion === "still"
 
   property string mood: "sleep"   // sleep | calm | busy | strain | critical
   property real fill: 0           // used memory 0..1 (pouch size)
@@ -41,7 +46,7 @@ Item {
 
   // ---------- state ----------
   readonly property bool struggling: mood === "strain" || mood === "critical"
-  readonly property bool grooving: catMood === "dance" && (mood === "sleep" || mood === "calm")
+  readonly property bool grooving: extras && catMood === "dance" && (mood === "sleep" || mood === "calm")
     && touch.reaction === "" && !touch.dragged && !touch.landing
   readonly property bool awake: mood !== "sleep" || touch.hovered || touch.reaction !== ""
     || touch.dragged || touch.landing || grooving
@@ -153,7 +158,7 @@ Item {
   Timer {
     interval: 3200
     repeat: true
-    running: pet.active && (pet.mood === "calm" || pet.mood === "busy") && !pet.grooving
+    running: pet.active && !pet.still && (pet.mood === "calm" || pet.mood === "busy") && !pet.grooving
     onTriggered: { pet.blinking = true; blinkOff.restart(); interval = 2600 + Math.floor(Math.random() * 3000) }
   }
   Timer { id: blinkOff; interval: 150; onTriggered: pet.blinking = false }
@@ -161,7 +166,7 @@ Item {
   Timer {
     interval: 9000
     repeat: true
-    running: pet.active && pet.mood === "calm" && pet.fidget === "" && !touch.busy && !pet.grooving
+    running: pet.active && pet.extras && pet.mood === "calm" && pet.fidget === "" && !touch.busy && !pet.grooving
     onTriggered: {
       var picks = ["look", "sniff", "wash", "nibble", "yawn", "wash", "nibble"]
       var durs = { look: 2500, sniff: 2000, wash: 2500, nibble: 3500, yawn: 1750 }
@@ -176,6 +181,7 @@ Item {
   Timer { id: fidgetEnd; onTriggered: pet.fidget = "" }
   onMoodChanged: { fidget = ""; fidgetEnd.stop() }
   onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop(); blinking = false }
+  onExtrasChanged: if (!extras) { fidget = ""; fidgetEnd.stop() }
 
   // ---------- palettes ----------
   readonly property var pal: colors.base
@@ -371,7 +377,9 @@ Item {
     id: touch
     anchors.fill: parent
     active: pet.active
+    reactions: pet.reactions
     place: pet.place
     window: pet.window
+
   }
 }
