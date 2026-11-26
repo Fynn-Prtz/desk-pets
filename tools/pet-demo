@@ -2,7 +2,7 @@
 # pet-demo: run the desk pets through all their moods, touch reactions and neighbour moments, live on the
 # desktop, so you can look at every animation without waiting for the real load/temps/traffic.
 #
-#   tools/pet-demo [sys|mem|disk|net|games|audio|all ...] [-s SECONDS] [--stay]
+#   tools/pet-demo [sys|mem|disk|net|games|audio|clock|all ...] [-s SECONDS] [--stay]
 #
 # Default: all pets, 5 s per state. Switches DP-1 to an empty workspace while it runs (so the cards aren't
 # covered) and switches back at the end. --stay keeps the current workspace. Ctrl+C restores everything.
@@ -19,10 +19,10 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ ${#PICK[@]} -eq 0 ] && PICK=(all)
-[ "${PICK[0]}" = all ] && PICK=(sys mem disk net games audio)
+[ "${PICK[0]}" = all ] && PICK=(sys mem disk net games audio clock)
 
 B=$'\e[1m'; DIM=$'\e[2m'; R=$'\e[0m'; C=$'\e[36m'
-CARDS=(desksys deskmem deskdisk desknet deskgames deskaudio)
+CARDS=(desksys deskmem deskdisk desknet deskgames deskaudio deskclock)
 ipc() { omarchy-shell "$@" >/dev/null 2>&1; }
 say() { printf '  %s%-9s%s %s\n' "$C" "$1" "$R" "$2"; }
 hold() { sleep "${1:-$SECS}"; }
@@ -81,8 +81,12 @@ for p in "${PICK[@]}"; do
       say sweat "penguin under load while playing";    ipc desksys demo load; hold; ipc desksys demo maxed; hold; ipc desksys demo ""
       say bop "cat dances";                            ipc deskgames demo ready; ipc deskaudio demo dance; hold; ipc deskaudio demo ""
       ipc deskgames demo "" ;;
+    clock)
+      moods deskclock "🦉 Owl" awake drowsy sleep
+      ipc deskclock demo awake; say hoot "on the hour"; ipc deskclock react hoot; hold 6
+      reactions deskclock awake ;;
     audio) moods deskaudio "🐱 DJ cat" sleep idle dance loud;            reactions deskaudio idle ;;
-    *) echo "unknown pet '$p' (sys mem disk net games audio all)" >&2 ;;
+    *) echo "unknown pet '$p' (sys mem disk net games audio clock all)" >&2 ;;
   esac
 done
 reset

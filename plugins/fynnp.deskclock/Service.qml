@@ -242,7 +242,8 @@ Item {
     if (nightFrom === nightTo) return false
     return nightFrom < nightTo ? (h >= nightFrom && h < nightTo) : (h >= nightFrom || h < nightTo)
   }
-  readonly property string mood: inNight(hour) ? "sleep" : inNight((hour + 1) % 24) ? "drowsy" : "awake"
+  readonly property string mood: demoMood !== "" ? demoMood : liveMood
+  readonly property string liveMood: inNight(hour) ? "sleep" : inNight((hour + 1) % 24) ? "drowsy" : "awake"
 
   function pad2(n) { return n < 10 ? "0" + n : String(n) }
   function hm(h, m) {
@@ -307,6 +308,18 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Demo / test hook for tools/pet-demo: override the mood ("" = live), play reactions, hoot.
+  property string demoMood: ""
+  IpcHandler {
+    target: "deskclock"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") owl.touch.landings++
+      else if (kind === "hoot") owl.hoot(3)
+      else owl.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
 
   PanelWindow {
     id: win
