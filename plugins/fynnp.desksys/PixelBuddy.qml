@@ -2,24 +2,26 @@ import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
 
-// Pixel computer buddy (px 2 on the shared 44x38 pet canvas, docs/PETS.md).
-// A little CRT with a face on its lit screen, stubby legs, mitten arms and a
-// power-cable tail. Everything it shows comes from Sprites.scene(): this
+// Pixel penguin at a tiny CRT (px 2 on the shared 44x38 pet canvas,
+// docs/PETS.md). The penguin stands at a little desk with a beige CRT, a
+// keyboard and a mug. Everything it shows comes from Sprites.scene(): this
 // item only gathers the state, times fidgets / blinks / reactions and lays
 // out the body, the floor shadow and up to six effect sprites.
 //
 // Ladder (mood from CPU/GPU load + temps):
-//   idle  dark screen, sleeps, breathes, LED pulses, z's
-//   chill blinks, fidgets (look around, stretch, yawn, screensaver, wiggle, beep)
-//   work  types on a tiny keyboard, progress bar fills, bobs
-//   load  STRUGGLE: > < eyes, gritted teeth, pumping arms, stomping, sweat,
-//         effort lines, vent puffs, shaking
-//   maxed loading ring / "100%" glitch / dizzy, flailing, heavy sweat, sparks
-//   hot   flames + smoke, red LED, panting with tongue out, fanning itself
-// Neighbours: cat dance -> dances with notes; gamer launching -> "!" on the
-// screen; gamer playing while stressed -> gamepad on the screen.
-// Touch (PetTouch): pet, annoyed, squish, hover (eyes follow), drag (dangles,
-// cable swings), landing (squash + dust, then dizzy).
+//   idle  dozes with its head on the keyboard, screen off, breathes, z's
+//   chill blinks, fidgets (sip from the mug, look around, stretch, yawn,
+//         waddle, a few keystrokes)
+//   work  types away, code scrolls, progress bar fills
+//   load  STRUGGLE: frantic typing, flapping, > < eyes, gritted beak, sweat,
+//         effort lines, the CRT rattles and its fans puff
+//   maxed dizzy, loading ring / "100" glitch on the screen, papers flying
+//   hot   MELTS: sinks into a growing puddle, fans itself, steams, pants;
+//         pulls itself together now and then (shiver), thermometer on screen
+// Neighbours: cat dance -> grooves, equaliser on the screen; gamer launching
+// -> "!" on the screen; gamer playing while stressed -> gamepad on the screen.
+// Touch (PetTouch): pet (heart on the screen), annoyed, squish, hover (eyes
+// follow), drag (penguin lifted, flails), landing (squash + dust, then dizzy).
 Item {
   id: buddy
   property string mood: "idle"   // idle | chill | work | load | maxed | hot
@@ -64,8 +66,8 @@ Item {
   Timer { id: blinkOff; interval: 150; onTriggered: buddy.blinking = false }
 
   // ---------- idle fidgets (chill only) ----------
-  readonly property var fidgets: ["look", "stretch", "yawn", "blip", "wiggle", "beep"]
-  readonly property var fidgetLength: ({ look: 2800, stretch: 2600, yawn: 2600, blip: 3300, wiggle: 2000, beep: 1800 })
+  readonly property var fidgets: ["look", "stretch", "yawn", "sip", "wiggle", "type"]
+  readonly property var fidgetLength: ({ look: 2800, stretch: 2600, yawn: 2600, sip: 3000, wiggle: 2000, type: 2000 })
   property string fidget: ""
   property real fidgetStart: 0
   Timer {
