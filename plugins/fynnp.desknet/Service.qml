@@ -9,7 +9,8 @@ import qs.Ui
 
 // Desk Net: the system card's sibling. Default-route interface and address,
 // live down / up rates, a 40 s throughput history and totals since the card
-// started, with a pixel router that dozes, flickers and loses its antennas.
+// started, with a carrier pigeon that dozes on its wire, flies your packets
+// in and out, gets buried in letters and gets lost when offline.
 //
 // Data comes from ~/.local/bin/desknet-feed (Rust, source in helpers/desknet-feed of the desk-pets repo):
 // it blocks on stdin and answers one JSON line per request (rates computed
@@ -281,8 +282,8 @@ Item {
   function rate(v) { return bytes(v) + "/s" }
   readonly property real totalBoth: totalRx + totalTx
 
-  // Pet clock (seconds): ticks only while visible and the router animates
-  // (a calm router just blinks on its own timer); 8 fps only while it reacts
+  // Pet clock (seconds): ticks only while visible and the pigeon animates
+  // (a calm pigeon just blinks on its own timer); 8 fps only while it reacts
   // to a touch or a drag.
   property real clock: 0
   Timer {
@@ -292,7 +293,7 @@ Item {
     onTriggered: root.clock += interval / 1000
   }
 
-  // Mood bus, read-only: the router reacts to the cat but doesn't publish a
+  // Mood bus, read-only: the pigeon reacts to the cat but doesn't publish a
   // mood of its own (no name = nothing written).
   DeskLink { id: link }
 
@@ -373,7 +374,7 @@ Item {
         width: card.width - card.borderLeft - card.borderRight - root.pad * 2
         spacing: Style.space(10)
 
-        // ---- pixel router + interface / down / up ----
+        // ---- pixel pigeon + interface / down / up ----
         Item {
           width: parent.width
           height: buddy.height

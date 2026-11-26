@@ -1,32 +1,36 @@
 .pragma library
 
-// Router pet for the Desk Net card, v2: 44x38 cells drawn at px 2.
-// A chubby little router box with two antennas (ball tips), a face on its
-// front, a strip of port LEDs, stubby arms and legs. Top-lit shading like the
-// screensaver cat (shared/PetColors keys, see docs/PETS.md). Extra keys:
-//   a  antenna tips            1 2 3 4  port LEDs (left to right)
-// The QML side colours those through colors.with({...}).
+// Carrier pigeon pet for the Desk Net card (round 2): 44x38 cells at px 2.
+// A plump chibi pigeon facing the viewer: big round head with an
+// iridescent neck band, a little beak with a white cere, folded wings with
+// two dark bars, pink feet gripping a wire, and a messenger bag across its
+// chest whose tag carries the rx/tx lights (palette keys 1 2 = down,
+// 3 4 = up, set by the card). Top-lit shading with the shared PetColors
+// keys (docs/PETS.md).
 //
-// The body frame is built from shape functions and memoised by its key, so
-// each pose is built once and reused; QML only swaps keys. Effects (packets,
-// z's, hearts, sweat, wifi arcs) are separate small sprites.
+// Memoised layers, each built once per distinct key:
+//   pigeon(key)  the bird (moves with hops / flaps / shakes)
+//   ground(key)  the wire it perches on (stays put; behind the bird)
+//   front(key)   the envelope pile burying it while traffic is very heavy
+// Effects (envelopes in flight, feathers, z's, hearts, sweat) are small
+// fixed sprites below + PetFx.
 //
-// router(key): key is "eyes|lookX|lookY|mouth|arms|legs|antennas|squash|drop|lean|blush"
-//   eyes     open blink sleep happy squint strain dizzy worried wide angry
-//   mouth    none smile omega open o grit wobble pout flat
-//   arms     rest wave up catch juggle1 juggle2 flail1 flail2 hug cheer fists
-//   legs     stand tap shake1 shake2 dangle
-//   antennas up relax wiggle1 wiggle2 bent1 bent2 flop cross wave1 wave2 heart perk
-//   squash   rows the body top sinks (0..3); 2+ also widens it
-//   drop     rows the body sits lower (-2..2; < 0 = stretched legs)
-//   lean     -1/0/1 tilt
-//   blush    0 none, 1 pink, 2 urgent
+// pigeon key: "eyes|lookX|lookY|beak|wings|feet|puff|squash|lean|blush|headX|headY|bag|hold"
+//   eyes   open blink sleep happy squint strain dizzy worried wide angry
+//   beak   closed open coo tuck
+//   wings  fold up mid down hold preen hips
+//   feet   stand tap stomp dangle tuck
+//   puff   0/1 puffed-up feathers (sleep, annoyed)
+//   squash 0..3   lean -1/0/1   blush 0/1/2   headX/headY head offset
+//   bag    0..3 envelopes sticking out of the bag
+//   hold   "" | map (upside-down map held in the wings)
+// ground key: "wire|shadow"  (shadow 1 while hovering/dangling)
+// front key:  pile level 0..2
 
 var W = 44
 var H = 38
-var FLOOR = 35
 
-// ---------- tiny raster kit (same idea as the catsaver) ----------
+// ---------- raster kit ----------
 function grid() {
   var g = []
   for (var y = 0; y < H; y++) {
@@ -36,327 +40,336 @@ function grid() {
   }
   return g
 }
-
 function put(g, x, y, c) { if (y >= 0 && y < H && x >= 0 && x < W) g[y][x] = c }
 function get(g, x, y) { return y >= 0 && y < H && x >= 0 && x < W ? g[y][x] : "." }
 function putIf(g, x, y, c, only) { if (only.indexOf(get(g, x, y)) >= 0) put(g, x, y, c) }
+function IN(inside, x, y) { return y >= 0 && y < H && x >= 0 && x < W && inside[y][x] }
 
-// Fill mask(x, y) with fill(x, y, inside) and ring it with a 1-cell outline
-// (8-neighbourhood). Returns the inside table.
-function layer(g, mask, fill) {
+function layer(g, mask, fill, ring) {
   var inside = []
   for (var y = 0; y < H; y++) {
     var r = []
     for (var x = 0; x < W; x++) r.push(!!mask(x, y))
     inside.push(r)
   }
-  for (var y2 = 0; y2 < H; y2++) {
+  var oc = ring || "o"
+  for (var y2 = 0; y2 < H; y2++)
     for (var x2 = 0; x2 < W; x2++) {
       if (inside[y2][x2]) { g[y2][x2] = typeof fill === "function" ? fill(x2, y2, inside) : fill; continue }
       var edge = false
       for (var dy = -1; dy <= 1 && !edge; dy++)
-        for (var dx = -1; dx <= 1 && !edge; dx++) {
-          var yy = y2 + dy, xx = x2 + dx
-          if (yy >= 0 && yy < H && xx >= 0 && xx < W && inside[yy][xx]) edge = true
-        }
-      if (edge) g[y2][x2] = "o"
+        for (var dx = -1; dx <= 1 && !edge; dx++)
+          if (IN(inside, x2 + dx, y2 + dy)) edge = true
+      if (edge) g[y2][x2] = oc
     }
-  }
   return inside
 }
 
-function isIn(inside, x, y) { return y >= 0 && y < H && x >= 0 && x < W && inside[y][x] }
-
-// Rounded box: superellipse through the cell centres.
-function inBox(x, y, x0, y0, x1, y1, n) {
-  var cx = (x0 + x1 + 1) / 2, cy = (y0 + y1 + 1) / 2
-  var rx = (x1 - x0 + 1) / 2, ry = (y1 - y0 + 1) / 2
-  var dx = Math.abs(x + 0.5 - cx) / rx, dy = Math.abs(y + 0.5 - cy) / ry
-  return Math.pow(dx, n) + Math.pow(dy, n) <= 1
+function inEllipse(x, y, cx, cy, rx, ry) {
+  var dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry
+  return dx * dx + dy * dy <= 1
 }
-
-// Capsule (thick segment) from a to b with radius r.
-function inSeg(x, y, a, b, r) {
+function inRRect(x, y, x0, y0, x1, y1, r) {
   var px = x + 0.5, py = y + 0.5
-  var vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy
-  var t = l2 > 0 ? Math.max(0, Math.min(1, ((px - a[0]) * vx + (py - a[1]) * vy) / l2)) : 0
-  var ex = a[0] + vx * t - px, ey = a[1] + vy * t - py
-  return ex * ex + ey * ey <= r * r
+  if (px < x0 || px > x1 + 1 || py < y0 || py > y1 + 1) return false
+  var cx = Math.max(x0 + r, Math.min(x1 + 1 - r, px)), cy = Math.max(y0 + r, Math.min(y1 + 1 - r, py))
+  return (px - cx) * (px - cx) + (py - cy) * (py - cy) <= r * r
 }
-
-// Top-lit shading of a filled region: highlight under the top contour,
-// shade above the bottom one.
-function shade(base, hiCut) {
-  return function(x, y, inside) {
-    if (!isIn(inside, x, y - 1) && x < hiCut) return "h"
-    if (!isIn(inside, x, y + 2)) return "n"
-    return base
+// Tapering capsule along a polyline: radius r0 at the first point, r1 at the last.
+function inTaper(pts, x, y, r0, r1) {
+  var px = x + 0.5, py = y + 0.5
+  var total = 0, lens = []
+  for (var i = 0; i + 1 < pts.length; i++) {
+    var l = Math.sqrt(Math.pow(pts[i + 1][0] - pts[i][0], 2) + Math.pow(pts[i + 1][1] - pts[i][1], 2))
+    lens.push(l); total += l
   }
+  var acc = 0
+  for (var j = 0; j + 1 < pts.length; j++) {
+    var a = pts[j], b = pts[j + 1]
+    var vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy
+    var t = l2 > 0 ? Math.max(0, Math.min(1, ((px - a[0]) * vx + (py - a[1]) * vy) / l2)) : 0
+    var ex = a[0] + vx * t - px, ey = a[1] + vy * t - py
+    var s = total > 0 ? (acc + t * lens[j]) / total : 0
+    var r = r0 + (r1 - r0) * s
+    if (ex * ex + ey * ey <= r * r) return true
+    acc += lens[j]
+  }
+  return false
+}
+function segDist(pts, x, y) {
+  var px = x + 0.5, py = y + 0.5, best = 1e9
+  for (var i = 0; i + 1 < pts.length; i++) {
+    var a = pts[i], b = pts[i + 1]
+    var vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy
+    var t = l2 > 0 ? Math.max(0, Math.min(1, ((px - a[0]) * vx + (py - a[1]) * vy) / l2)) : 0
+    var ex = a[0] + vx * t - px, ey = a[1] + vy * t - py
+    best = Math.min(best, Math.sqrt(ex * ex + ey * ey))
+  }
+  return best
 }
 
-// Stamp a small pattern; "." is skipped. mirror flips it horizontally.
-function stamp(g, rows, x, y, mirror) {
+function stamp(g, rows, x, y, mirror, map) {
   for (var r = 0; r < rows.length; r++) {
     var row = rows[r]
     for (var c = 0; c < row.length; c++) {
       var ch = mirror ? row.charAt(row.length - 1 - c) : row.charAt(c)
-      if (ch !== ".") put(g, x + c, y + r, ch)
+      if (ch === ".") continue
+      put(g, x + c, y + r, map && map[ch] ? map[ch] : ch)
     }
   }
 }
-
-// ---------- face parts (4 wide; the right eye is the mirror) ----------
-var EYES = {
-  open:    [".ee.", "eexe", "eeee", ".ee."],
-  blink:   ["....", "....", "eeee", "...."],
-  sleep:   ["....", "e..e", ".ee.", "...."],
-  happy:   ["....", ".ee.", "e..e", "...."],
-  squint:  ["ee..", "..ee", "ee..", "...."],
-  strain:  ["e...", ".ee.", "...e", ".ee."],
-  dizzy:   ["eee.", "e..e", "e.ee", ".e.."],
-  worried: [".ee.", "eexe", "eeee", ".ee."],
-  wide:    [".ee.", "eexe", "eeee", "eeee", ".ee."],
-  angry:   ["....", "eee.", "eexe", ".ee."]
+function mirrorRows(rows) {
+  var out = []
+  for (var i = 0; i < rows.length; i++) out.push(rows[i].split("").reverse().join(""))
+  return out
 }
-// Brows (row above the eyes), left side; mirrored for the right.
+function mirrorPts(pts) {
+  var out = []
+  for (var i = 0; i < pts.length; i++) out.push([43 - pts[i][0], pts[i][1]])
+  return out
+}
+
+// ---------- face parts ----------
+var EYES = {
+  open:    [".ee.", "exee", "eeee", "eeee", ".ee."],
+  blink:   ["....", "....", "....", "eeee", "...."],
+  sleep:   ["....", "....", "e..e", ".ee.", "...."],
+  happy:   ["....", ".ee.", "e..e", "....", "...."],
+  squint:  ["e...", ".ee.", "...e", ".ee.", "e..."],
+  strain:  ["ee..", ".eee", "...e", ".eee", "ee.."],
+  dizzy:   [".eee", "e...", "e.ee", "e..e", ".ee."],
+  worried: ["....", ".ee.", "exee", "eeee", ".ee."],
+  wide:    [".ee.", "exxe", "exee", "eeee", ".ee."],
+  angry:   ["....", "eee.", "exee", "eeee", ".ee."]
+}
+var ASYM = { squint: 1, strain: 1, dizzy: 1 }
 var BROWS = {
-  worried: ["...e", ".ee."],
-  angry:   ["e...", ".ee."],
+  worried: ["..ee", "ee.."],
+  angry:   ["ee..", "..ee"],
   strain:  ["ee..", "..ee"]
 }
-var MOUTHS = {
-  none:   [],
-  smile:  ["e..e", ".ee."],
-  omega:  ["e.ee.e", ".e..e."],
-  open:   [".ee.", "eppe", ".ee."],
-  o:      [".ee.", "e..e", ".ee."],
-  grit:   ["eeeeee", "exexex", "eeeeee"],
-  wobble: [".e.e.e", "e.e.e."],
-  pout:   [".ee.", "e..e"],
-  flat:   ["eeee"]
+// Beaks, centred under the eyes: l cere, w beak, e ink.
+var BEAKS = {
+  closed: ["eeeeee", "ellwwe", ".ewwe.", "..ee.."],
+  open:   ["eeeeee", "ellwwe", "eeeeee", "ewppwe", ".eeee."],
+  coo:    ["eeeeee", "ellwwe", ".ewwe.", "..ee..", ".e..e.", "..ee.."],
+  tuck:   ["eeeeee", "ellwwe", ".eeee."]
 }
 
-// ---------- face parts (4 wide; the right eye mirrors where it matters) ----------
-var EYES = {
-  open:    [".ee.", "eexe", "eeee", ".ee."],
-  blink:   ["....", "....", "eeee", "...."],
-  sleep:   ["....", "e..e", ".ee.", "...."],
-  happy:   ["....", ".ee.", "e..e", "...."],
-  squint:  ["ee..", "..ee", "ee..", "...."],
-  strain:  ["e...", ".ee.", "...e", ".ee."],
-  dizzy:   ["eee.", "e..e", "e.ee", ".e.."],
-  worried: [".ee.", "eexe", "eeee", ".ee."],
-  wide:    [".ee.", "eexe", "eeee", "eeee", ".ee."],
-  angry:   ["....", "eee.", "eexe", ".ee."]
-}
-var BROWS = {
-  worried: ["...e", ".ee."],
-  angry:   ["e...", ".ee."],
-  strain:  ["ee..", "..ee"]
-}
-var MOUTHS = {
-  none:   [],
-  smile:  ["e..e", ".ee."],
-  omega:  ["e.ee.e", ".e..e."],
-  open:   [".ee.", "eppe", ".ee."],
-  o:      [".ee.", "e..e", ".ee."],
-  grit:   ["eeeeee", "exexex", "eeeeee"],
-  wobble: [".e.e.e", "e.e.e."],
-  pout:   [".ee.", "e..e"],
-  flat:   ["eeee"]
-}
+// ---------- props ----------
+// envelope with a red seal (pet palette)
+var ENVELOPE = [
+  "ooooooo",
+  "onlllno",
+  "olnlnlo",
+  "ollrllo",
+  "ooooooo"
+]
+// the map, held upside down: north arrow points down, route dashed in red
+var MAP = [
+  "eeeeeeeeeeeeee",
+  "elrllwwlllelwe",
+  "ellrlwwlllelwe",
+  "elllrwwlllelwe",
+  "ellllrwlllelwe",
+  "elllwwrleeeeee",
+  "ellllwwleeelwe",
+  "ellllwwrlelrwe",
+  "ellllwwllrrrwe",
+  "eeeeeeeeeeeeee"
+]
 
-// Antenna shapes for the LEFT antenna as offsets from its base: [mid, tip].
-// The right one mirrors (dx negated) unless the pose lists its own.
-var ANTENNAS = {
-  up:      { l: [[-1, -5], [-2, -10]] },
-  perk:    { l: [[0, -5], [-1, -11]] },
-  relax:   { l: [[-2, -4], [-6, -7]] },
-  wiggle1: { l: [[-1, -5], [-4, -9]], r: [[1, -5], [0, -10]] },
-  wiggle2: { l: [[-1, -5], [0, -10]], r: [[1, -5], [4, -9]] },
-  bent1:   { l: [[-1, -6], [4, -8]], r: [[2, -5], [6, -3]] },
-  bent2:   { l: [[-2, -5], [-6, -3]], r: [[1, -6], [-4, -8]] },
-  flop:    { l: [[-3, -3], [-7, -1]] },
-  cross:   { l: [[1, -5], [7, -9]] },
-  wave1:   { l: [[-3, -4], [-8, -6]], r: [[2, -5], [2, -10]] },
-  wave2:   { l: [[-2, -5], [-2, -10]], r: [[3, -4], [8, -6]] },
-  heart:   { l: [[-2, -6], [3, -10]] }
-}
-
-// 1-cell line between two points (Bresenham).
-function line(g, a, b, c) {
-  var x0 = Math.round(a[0]), y0 = Math.round(a[1]), x1 = Math.round(b[0]), y1 = Math.round(b[1])
-  var dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy
-  for (;;) {
-    put(g, x0, y0, c)
-    if (x0 === x1 && y0 === y1) break
-    var e2 = 2 * err
-    if (e2 >= dy) { err += dy; x0 += sx }
-    if (e2 <= dx) { err += dx; y0 += sy }
-  }
-}
-
-function drawAntenna(g, base, pts) {
-  var mid = [base[0] + pts[0][0], base[1] + pts[0][1]]
-  var tip = [base[0] + pts[1][0], base[1] + pts[1][1]]
-  line(g, base, mid, "o")
-  line(g, mid, tip, "o")
-  // ball tip: 2x2 light with an outline ring
-  var tx = Math.round(tip[0]), ty = Math.round(tip[1])
-  layer(g, function(x, y) { return (x === tx || x === tx + 1) && (y === ty - 1 || y === ty) }, function(x, y) {
-    return x === tx && y === ty - 1 ? "x" : "a"
-  })
-  put(g, tx - 1, ty - 2, "."); put(g, tx + 2, ty - 2, "."); put(g, tx - 1, ty + 1, "."); put(g, tx + 2, ty + 1, ".")
-}
-
-// ---------- the router ----------
+// ---------- the pigeon ----------
 var cache = {}
 var cacheSize = 0
-
-function router(key) {
+function pigeon(key) {
   var hit = cache[key]
   if (hit) return hit
-  if (cacheSize > 400) { cache = {}; cacheSize = 0 }
+  if (cacheSize > 500) { cache = {}; cacheSize = 0 }
   var rows = build(String(key).split("|"))
   cache[key] = rows
   cacheSize++
   return rows
 }
 
+// Wing feathers of the LEFT wing per pose: shoulder + feather tips.
+var WINGS = {
+  fold:  { s: [12.5, 20], tips: [[10.5, 31], [12, 31.5], [13.5, 31]] },
+  hips:  { s: [12, 20], tips: [[8.5, 28], [9.5, 30], [11, 31]] },
+  up:    { s: [12, 19], tips: [[3, 7], [2, 11], [3, 15]] },
+  mid:   { s: [12, 20], tips: [[1.5, 16], [1.5, 20], [3, 24]] },
+  down:  { s: [12, 20], tips: [[3, 27], [4.5, 30], [7, 32]] },
+  hold:  { s: [12.5, 20], tips: [[15.5, 26], [15, 25], [14.5, 24]] },
+  preen: { s: [12, 20], tips: [[6, 22], [6, 25], [7.5, 28]] }
+}
+
 function build(k) {
-  var eyes = k[0] || "open", lx = +k[1] || 0, ly = +k[2] || 0, mouth = k[3] || "none"
-  var arms = k[4] || "rest", legs = k[5] || "stand", ant = k[6] || "up"
-  var sq = +k[7] || 0, drop = +k[8] || 0, lean = +k[9] || 0, blush = +k[10] || 0
+  var o = {
+    eyes: k[0] || "open", lx: +k[1] || 0, ly: +k[2] || 0, beak: k[3] || "closed",
+    wings: k[4] || "fold", feet: k[5] || "stand", puff: +k[6] || 0, sq: +k[7] || 0,
+    lean: +k[8] || 0, blush: +k[9] || 0, hx: +k[10] || 0, hy: +k[11] || 0,
+    bag: +k[12] || 0, hold: k[13] || ""
+  }
   var g = grid()
+  var sq = o.sq, pf = o.puff
+  var footY = o.feet === "dangle" ? 35 : 33
+  // body (egg) and head (round, big)
+  var bcx = 21.5, bcy = 25 + sq * 0.8 + pf * 0.3, brx = 10.5 + sq * 1.0 + pf * 1.6, bry = 8.3 - sq * 0.5 + pf * 0.6
+  var hcx = 21.5 + o.hx, hcy = 13 + o.hy + sq * 2.0 + pf * 1.6, hrx = 9.2 + sq * 0.6, hry = 7.6 - sq * 0.7
+  if (o.feet === "dangle") { bcy -= 1; hcy -= 1 }
 
-  var wide = sq >= 2 ? 1 : 0
-  var x0 = 8 - wide, x1 = 35 + wide
-  var y0 = 13 + sq + drop, y1 = 30 + drop
-
-  // Legs, behind the body.
-  var lt = legs === "dangle" ? 2 : 0
-  var dl = 0, dr = 0, upL = 0
-  if (legs === "shake1") { dl = -1; dr = 1 }
-  if (legs === "shake2") { dl = 1; dr = -1 }
-  if (legs === "tap") upL = 1
-  var feetBottom = 33 + lt
+  // ---- tail feathers peeking out behind, low on both sides ----
   layer(g, function(x, y) {
-    var top = y1 - 1
-    if (x >= 13 + dl && x <= 17 + dl && y >= top && y <= feetBottom - upL) return true
-    if (x >= 26 + dr && x <= 30 + dr && y >= top && y <= feetBottom) return true
+    return inTaper([[bcx - 4, bcy + 4], [bcx - 9, bcy + 8.5]], x, y, 2.2, 1.6) ||
+           inTaper([[bcx + 4, bcy + 4], [bcx + 9, bcy + 8.5]], x, y, 2.2, 1.6)
+  }, function(x, y, inside) { return !IN(inside, x, y + 1) ? "e" : "d" })
+
+  // ---- feet ----
+  function footMask(x, y) {
+    var fl = [bcx - 4, footY], fr = [bcx + 4, footY]
+    if (o.feet === "tap") fl[1] -= 1
+    if (o.feet === "stomp") fr[1] -= 2
+    if (o.feet === "tuck") return false
+    var legs = o.feet === "dangle"
+      ? [[[fl[0], bcy + 5], [fl[0] - 1, fl[1]]], [[fr[0], bcy + 5], [fr[0] + 1, fr[1]]]]
+      : [[[fl[0], bcy + 5], [fl[0], fl[1]]], [[fr[0], bcy + 5], [fr[0], fr[1]]]]
+    for (var i = 0; i < 2; i++) {
+      if (segDist(legs[i], x, y) < 0.8) return true
+      var f = legs[i][1]
+      // three toes
+      if (Math.floor(f[1]) === y && x >= Math.floor(f[0]) - 2 && x <= Math.floor(f[0]) + 1) return true
+    }
     return false
-  }, function(x, y) { return y >= feetBottom - 1 - (x < 22 ? upL : 0) ? "n" : "d" })
+  }
+  layer(g, footMask, "k")
 
-  // Antennas, behind the body (their bases tuck under the top edge).
-  var A = ANTENNAS[ant] || ANTENNAS.up
-  var lp = A.l
-  var rp = A.r || [[-lp[0][0], lp[0][1]], [-lp[1][0], lp[1][1]]]
-  drawAntenna(g, [12, y0 + 1], lp)
-  drawAntenna(g, [31, y0 + 1], rp)
+  // ---- wings that spread out sit behind the body ----
+  var wp = WINGS[o.wings] || WINGS.fold
+  var behind = o.wings === "up" || o.wings === "mid" || o.wings === "down" || o.wings === "preen"
+  function wingMask(pts) {
+    return function(x, y) {
+      for (var i = 0; i < pts.tips.length; i++)
+        if (inTaper([pts.s, pts.tips[i]], x, y, 3.6 - i * 0.2, 1.3)) return true
+      return false
+    }
+  }
+  function wingFill(side) {
+    return function(x, y, inside) {
+      if (!IN(inside, x, y - 1)) return "h"
+      // two dark wing bars across the feathers, dark primaries at the tips
+      var sx = side ? 43 - wp.s[0] : wp.s[0]
+      var d = Math.sqrt(Math.pow(x + 0.5 - sx, 2) + Math.pow(y + 0.5 - wp.s[1], 2))
+      if (d > 5.6 && d < 6.6) return "d"
+      if (d > 8.0 && d < 9.0) return "d"
+      if (d > 10.5) return "d"
+      return "n"
+    }
+  }
+  var wl = wp, wr = { s: [43 - wp.s[0], wp.s[1]], tips: mirrorPts(wp.tips) }
+  if (o.wings === "preen") wr = { s: [43 - WINGS.fold.s[0], WINGS.fold.s[1]], tips: mirrorPts(WINGS.fold.tips) }
+  if (behind) {
+    layer(g, wingMask(wl), wingFill(false))
+    if (o.wings !== "preen") layer(g, wingMask(wr), wingFill(true))
+  }
 
-  var AR = armSegs(arms, y0, y1, x0, x1)
-  for (var i = 0; i < AR.back.length; i++) drawArm(g, AR.back[i])
-
-  // Body: a soft box, lighter top plate, shaded underside.
-  var body = layer(g, function(x, y) { return inBox(x, y, x0, y0, x1, y1, 4) }, function(x, y, inside) {
-    if (!isIn(inside, x, y - 1)) return "l"
-    if (!isIn(inside, x, y - 2)) return "h"
-    if (!isIn(inside, x, y + 1) || !isIn(inside, x, y + 2)) return "n"
-    if (!isIn(inside, x + 1, y)) return "n"
-    if (!isIn(inside, x - 1, y)) return "h"
+  // ---- body ----
+  layer(g, function(x, y) { return inEllipse(x, y, bcx, bcy, brx, bry) }, function(x, y, inside) {
+    if (!IN(inside, x, y - 1)) return "h"
+    if (!IN(inside, x, y + 1)) return "n"
+    if (!IN(inside, x + 1, y) || !IN(inside, x + 2, y)) return "n"
+    // a soft lighter breast
+    if (inEllipse(x, y, bcx, bcy + 1.5, brx * 0.5, bry * 0.6)) return "h"
     return "b"
   })
-  // the top plate's front edge
-  for (var tx = x0 + 2; tx <= x1 - 2; tx++) putIf(g, tx, y0 + 2, "w", "b")
-  // vent slots on the top plate
-  for (var vx = 17; vx <= 26; vx += 3) { putIf(g, vx, y0 + 1, "n", "h"); putIf(g, vx + 1, y0 + 1, "n", "h") }
 
-  // Port strip with LEDs at the bottom of the front.
-  var py = y1 - 3
-  for (var sx = 12; sx <= 31; sx++) { put(g, sx, py, "d"); put(g, sx, py + 1, "d") }
-  put(g, 11, py, "n"); put(g, 32, py, "n"); put(g, 11, py + 1, "n"); put(g, 32, py + 1, "n")
-  var leds = [[14, "1"], [18, "2"], [24, "3"], [28, "4"]]
-  for (var l = 0; l < leds.length; l++) { put(g, leds[l][0], py, leds[l][1]); put(g, leds[l][0] + 1, py, leds[l][1]) }
-  // little port holes under the LEDs
-  for (var ph = 13; ph <= 30; ph += 2) put(g, ph, py + 1, "e")
-
-  // Face.
-  var fy = Math.max(0, sq - 1)
-  var ey = y0 + 4 + ly - Math.min(sq, 2)
-  var exL = 14 + lx, exR = 26 + lx
-  var eye = EYES[eyes] || EYES.open
-  if (eyes === "wide") ey -= 1
-  var asym = eyes === "squint" || eyes === "strain" || eyes === "dizzy" || eyes === "angry"
-  stamp(g, eye, exL, ey, false)
-  stamp(g, eye, exR, ey, asym)
-  var brow = BROWS[eyes]
-  if (brow) { stamp(g, brow, exL, ey - 2, false); stamp(g, brow, exR, ey - 2, true) }
-  var fyy = y0 + 4 - Math.min(sq, 2)
-  if (blush) {
-    var bc = blush === 2 ? "r" : "p"
-    put(g, 12, fyy + 4, bc); put(g, 13, fyy + 4, bc); put(g, 30, fyy + 4, bc); put(g, 31, fyy + 4, bc)
+  // ---- folded wings on the body sides ----
+  if (!behind) {
+    layer(g, wingMask(wl), wingFill(false))
+    layer(g, wingMask(wr), wingFill(true))
+  } else if (o.wings === "preen") {
+    layer(g, wingMask(wr), wingFill(true))
   }
-  var m = MOUTHS[mouth] || []
-  if (m.length) stamp(g, m, 22 - m[0].length / 2, fyy + 5, false)
 
-  for (var j = 0; j < AR.front.length; j++) drawArm(g, AR.front[j])
+  // ---- head ----
+  layer(g, function(x, y) { return inEllipse(x, y, hcx, hcy, hrx, hry) }, function(x, y, inside) {
+    if (!IN(inside, x, y - 1)) return "h"
+    if (!IN(inside, x, y - 2) && x < hcx + 2) return "h"
+    if (!IN(inside, x + 1, y)) return "n"
+    // the iridescent neck band along the bottom of the head
+    if (!IN(inside, x, y + 1)) return "p"
+    if (!IN(inside, x, y + 2)) return (x === Math.round(hcx) - 4 || x === Math.round(hcx) + 3) ? "h" : "p"
+    return "b"
+  })
+  // head gloss
+  var ht = Math.ceil(hcy - hry)
+  putIf(g, Math.round(hcx) - 5, ht + 2, "l", "hb"); putIf(g, Math.round(hcx) - 4, ht + 2, "l", "hb")
+  putIf(g, Math.round(hcx) - 6, ht + 3, "h", "b")
 
-  var sw = legs === "dangle" ? 7 : 11 + wide
-  for (var fx = 22 - sw; fx < 22 + sw; fx++) if (get(g, fx, FLOOR) === ".") put(g, fx, FLOOR, "t")
-  for (var fx2 = 22 - sw + 3; fx2 < 22 + sw - 3; fx2++) if (get(g, fx2, FLOOR + 1) === ".") put(g, fx2, FLOOR + 1, "t")
+  // ---- face ----
+  var eyeTop = Math.round(hcy - 3.5 + sq * 0.3) + o.ly
+  var cx = Math.round(hcx)
+  var exL = cx - 9 + o.lx, exR = cx + 4 + o.lx
+  var e = EYES[o.eyes] || EYES.open
+  stamp(g, e, exL, eyeTop, false)
+  stamp(g, e, exR, eyeTop, !!ASYM[o.eyes])
+  var brow = BROWS[o.eyes]
+  if (brow) {
+    stamp(g, brow, exL, eyeTop - 2, false)
+    stamp(g, brow, exR, eyeTop - 2, true)
+  }
+  if (o.blush) {
+    var bc = o.blush === 2 ? "r" : "p"
+    var by = eyeTop + 5
+    put(g, exL - 1, by, bc); put(g, exL, by, bc); put(g, exL + 1, by, bc)
+    put(g, exR + 2, by, bc); put(g, exR + 3, by, bc); put(g, exR + 4, by, bc)
+  }
+  var bk = BEAKS[o.beak] || BEAKS.closed
+  stamp(g, bk, cx - 3 + o.lx, eyeTop + 2 + (o.beak === "tuck" ? 2 : 0), false)
 
-  if (lean) shear(g, lean, y1)
+  // ---- messenger bag: strap over the left shoulder, bag on the right hip ----
+  if (o.wings !== "preen") {
+    var strap = [[bcx - 7, bcy - 6], [bcx + 7, bcy + 2]]
+    for (var y1 = 0; y1 < H; y1++)
+      for (var x1 = 0; x1 < W; x1++)
+        if (segDist(strap, x1, y1) < 0.75 && "bhnpd".indexOf(get(g, x1, y1)) >= 0) put(g, x1, y1, "k")
+  }
+  var bx0 = Math.round(bcx) + 4, by0 = Math.round(bcy) - 1
+  // envelopes sticking out of the bag
+  for (var i = 0; i < o.bag; i++) stamp(g, ENV_TOP, bx0 + 1 + i * 3, by0 - 2 + (i % 2), false)
+  stamp(g, BAG, bx0, by0, false)
+  // ---- held things ----
+  if (o.hold === "map") stamp(g, MAP, Math.round(bcx) - 7, Math.round(bcy) - 5, false)
+  if (o.wings === "hold") layer(g, function(x, y) {
+    return inEllipse(x, y, 14.5, bcy, 1.8, 2.4) || inEllipse(x, y, 28.5, bcy, 1.8, 2.4)
+  }, function(x, y, inside) { return !IN(inside, x, y - 1) ? "h" : !IN(inside, x, y + 1) ? "d" : "n" })
+
+  if (o.lean) shear(g, o.lean, footY)
 
   var out = []
   for (var y = 0; y < H; y++) out.push(g[y].join(""))
   return out
 }
 
-// Arm capsules for a pose: { back: [...], front: [...] }, each [a, b, r].
-function armSegs(pose, y0, y1, x0, x1) {
-  var sy = y0 + 9
-  var L = x0, R = x1
-  switch (pose) {
-  case "wave":    // right arm waving up, left resting
-    return { back: [[[L + 1, sy], [L - 2, sy + 4], 1.3]], front: [[[R - 1, sy - 1], [R + 3, sy - 6], 1.3]] }
-  case "cheer":   // both arms up and out
-    return { back: [], front: [[[L + 1, sy - 1], [L - 3, sy - 7], 1.3], [[R - 1, sy - 1], [R + 3, sy - 7], 1.3]] }
-  case "up":      // holding something overhead
-    return { back: [], front: [[[L, y0 + 7], [L + 1, y0 - 2], 1.3], [[R, y0 + 7], [R - 1, y0 - 2], 1.3]] }
-  case "carry":   // right hand up by the shutter (pulling / stuffing bits), left on the hip
-    return { back: [[[L + 1, sy], [L - 2, sy + 3], 1.3]], front: [[[R - 1, sy - 2], [R + 2, y0 + 1], 1.3]] }
-  case "carry2":  // the other hand
-    return { back: [[[R - 1, sy], [R + 2, sy + 3], 1.3]], front: [[[L + 1, sy - 2], [L - 2, y0 + 1], 1.3]] }
-  case "catch":   // both hands up and out, catching
-    return { back: [], front: [[[L + 1, sy - 1], [L - 3, sy - 5], 1.3], [[R - 1, sy - 1], [R + 3, sy - 5], 1.3]] }
-  case "juggle1": // left hand up, right down
-    return { back: [], front: [[[L + 1, sy - 1], [L - 2, sy - 6], 1.3], [[R - 1, sy], [R + 3, sy + 1], 1.3]] }
-  case "juggle2":
-    return { back: [], front: [[[L + 1, sy], [L - 3, sy + 1], 1.3], [[R - 1, sy - 1], [R + 2, sy - 6], 1.3]] }
-  case "flail1":
-    return { back: [], front: [[[L + 1, sy - 1], [L - 3, sy - 6], 1.3], [[R - 1, sy], [R + 3, sy + 3], 1.3]] }
-  case "flail2":
-    return { back: [], front: [[[L + 1, sy], [L - 3, sy + 3], 1.3], [[R - 1, sy - 1], [R + 3, sy - 6], 1.3]] }
-  case "hug":     // hands pressed to the cheeks
-    return { back: [], front: [[[L + 1, sy], [L + 3, sy + 3], 1.3], [[R - 1, sy], [R - 3, sy + 3], 1.3]] }
-  case "fists":   // stomping, arms down and tense
-    return { back: [], front: [[[L + 1, sy], [L - 1, sy + 4], 1.4], [[R - 1, sy], [R + 1, sy + 4], 1.4]] }
-  default:        // rest: little nubs at the sides
-    return { back: [[[L + 1, sy], [L - 2, sy + 3], 1.3], [[R - 1, sy], [R + 2, sy + 3], 1.3]], front: [] }
-  }
-}
+// the satchel: flap with a tag carrying the rx (1 2) and tx (3 4) lights
+var BAG = [
+  ".oooooooo.",
+  "opllllllpo",
+  "op12pp34ko",
+  "oppppppppo",
+  ".oeeeeeeo.",
+  "okkkkkkkko",
+  "okkkkkkkko",
+  ".oooooooo."
+]
+var ENV_TOP = [
+  "ooo",
+  "olo",
+  "olo"
+]
 
-function drawArm(g, s) {
-  layer(g, function(x, y) { return inSeg(x, y, s[0], s[1], s[2]) }, function(x, y, inside) {
-    return !isIn(inside, x, y - 1) ? "h" : !isIn(inside, x, y + 1) ? "n" : "b"
-  })
-}
-
-// Tilt: shift rows above the feet so the top leans `dir` (cells).
-function shear(g, dir, y1) {
-  var pivot = y1 + 1
+function shear(g, dir, pivot) {
   for (var y = 0; y < pivot; y++) {
-    var s = Math.round(dir * (pivot - y) / 12)
+    var s = Math.round(dir * (pivot - y) / 14)
     if (!s) continue
     var row = g[y].slice()
     for (var x = 0; x < W; x++) {
@@ -366,44 +379,82 @@ function shear(g, dir, y1) {
   }
 }
 
-// ---------- effect sprites (fx palette: o colour, h lighter, e ink) ----------
-// A packet: a tiny envelope.
-var packet = [
-  "oooooo",
-  "oehheo",
-  "oheeho",
-  "ohhhho",
-  "oooooo"
+// ---------- the wire (behind) ----------
+var gcache = {}
+function ground(key) {
+  var hit = gcache[key]
+  if (hit) return hit
+  var k = String(key).split("|")
+  var g = grid()
+  if (+k[1]) {
+    for (var x = 12; x <= 31; x++) put(g, x, 36, "t")
+  }
+  // a sagging wire from post to post
+  for (var x2 = 0; x2 < W; x2++) {
+    var sag = Math.round(Math.pow((x2 - 21.5) / 21.5, 2) * -1.4) + 1
+    put(g, x2, 33 + sag, "d")
+    put(g, x2, 34 + sag, "e")
+  }
+  var rows = []
+  for (var y = 0; y < H; y++) rows.push(g[y].join(""))
+  gcache[key] = rows
+  return rows
+}
+
+// ---------- the envelope pile (in front) ----------
+var fcache = {}
+function front(level) {
+  var key = String(level)
+  var hit = fcache[key]
+  if (hit) return hit
+  var g = grid()
+  var spots = [[5, 31], [14, 32], [24, 32], [32, 31], [9, 27], [28, 27], [19, 28],
+               [3, 24], [34, 23], [12, 23], [26, 23]]
+  var n = level >= 2 ? spots.length : level >= 1 ? 7 : 0
+  for (var i = 0; i < n; i++) {
+    var s = spots[i]
+    stamp(g, i % 3 === 1 ? ENVELOPE_TILT : ENVELOPE, s[0], s[1], i % 2 === 1)
+  }
+  var rows = []
+  for (var y = 0; y < H; y++) rows.push(g[y].join(""))
+  fcache[key] = rows
+  return rows
+}
+
+// ---------- effect sprites ----------
+// envelope in flight (pet palette), and a tilted one
+var envelope = ENVELOPE
+var ENVELOPE_TILT = [
+  "..oooo..",
+  ".onwwooo",
+  "owwnwnwo",
+  "owwwrwwo",
+  "oowwwwoo",
+  "...oooo."
 ]
-// Wi-Fi arcs searching for a signal: 0..3 arcs lit.
-var wifi = [
+var envelopeTilt = ENVELOPE_TILT
+// a loose feather drifting down (pet palette)
+var feather = [
   [
-    ".......",
-    ".......",
-    ".......",
-    ".......",
-    "...o..."
+    "..oo",
+    ".oho",
+    "ohno",
+    "ono.",
+    "oo..",
+    "o..."
   ],
   [
-    ".......",
-    ".......",
-    "..ooo..",
-    ".......",
-    "...o..."
-  ],
-  [
-    ".ooooo.",
-    "o.....o",
-    "..ooo..",
-    ".......",
-    "...o..."
+    "oo..",
+    "ohno",
+    "onho",
+    ".ono",
+    "..oo",
+    "...o"
   ]
 ]
-// A broken arc with an x: the search failed.
-var nowifi = [
-  "o.o....",
-  ".o.....",
-  "o.ooo..",
-  ".......",
-  "...o..."
+// "coo" puffs (fx palette)
+var coo = [
+  ".o.o.",
+  "o.o.o",
+  "....."
 ]
