@@ -40,8 +40,8 @@ Item {
 
   PetColors { id: colors }
 
-  readonly property bool moving: bop || fidget !== "" || touch.busy || landPlay.running
-  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
+  readonly property bool moving: bop || fidget !== "" || touch.busy || landPlay.running || greeting
+  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running || greeting)
   readonly property real wall: { var tick = gamer.clock; return (Date.now() % 100000000) / 1000 }
 
   // ---------- blinks (also the trophy's twinkle) ----------
@@ -91,6 +91,17 @@ Item {
   }
   Timer { id: landPlay; interval: 1500 }
 
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  // "Player two has joined": jump with the pad held high, "1UP", then a wave.
+  property int greetSerial: 0
+  property real greetStart: 0
+  readonly property bool greeting: greetPlay.running
+  onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
+    fidget = ""; fidgetEnd.stop(); greetStart = clock; greetPlay.restart()
+  }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+  Timer { id: greetPlay; interval: 2700 }
+
   PetTouch {
     id: touch
     anchors.fill: parent
@@ -116,7 +127,8 @@ Item {
     dragged: touch.dragged,
     lean: touch.lean,
     landT: landPlay.running && !touch.dragged ? gamer.clock - gamer.landStart : -1,
-    beat: Math.floor(gamer.wall * 4)
+    beat: Math.floor(gamer.wall * 4),
+    greetT: greetPlay.running ? gamer.clock - gamer.greetStart : -1
   }, PetFx)
 
   readonly property var fxPalettes: ({

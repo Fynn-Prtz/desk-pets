@@ -34,7 +34,7 @@ Item {
 
   property alias touch: petTouch
   // True while the cat wants frames although nothing else would tick.
-  readonly property bool moving: petTouch.busy || fidgeting || landT >= 0
+  readonly property bool moving: petTouch.busy || fidgeting || landT >= 0 || greeting
 
   // Dance tiers from sustained loudness (EMA of the level) -- tune live.
   property real gentleBelow: 0.22
@@ -48,7 +48,7 @@ Item {
   // ---------- time ----------
   // Ticks in 1/8 s. At 4 fps it advances by 2, so all one-shot animations
   // keep their timing when the clock speeds up for a reaction.
-  readonly property int tick: petTouch.busy ? Math.floor(clock * 8) : Math.floor(clock * 4) * 2
+  readonly property int tick: petTouch.busy || greeting ? Math.floor(clock * 8) : Math.floor(clock * 4) * 2
   // Wall-clock quarter seconds, re-read on every clock tick: the z's of the
   // cat and the buddy share one phase, so they float up in sync.
   readonly property int wallQ: { var c = cat.clock; return Math.floor((Date.now() % 100000000) / 250) }
@@ -109,6 +109,17 @@ Item {
     function onLandingsChanged() { cat.landStart = cat.tick }
   }
 
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  // Lifts one headphone cup to hear you, slow-blinks hello (Sprites greet()).
+  property int greetSerial: 0
+  property int greetStart: 0
+  readonly property bool greeting: greetPlay.running
+  onGreetSerialChanged: if (motion !== "still" && active && !petTouch.dragged) {
+    fidget = ""; greetStart = Math.floor(clock * 8); greetPlay.restart()
+  }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+  Timer { id: greetPlay; interval: 2800 }
+
   // ---------- scene ----------
   readonly property var scene: Sprites.scene({
     mode: mode, t: tick, tier: tier, amp: amp, blink: blinking,
@@ -117,7 +128,8 @@ Item {
     rea: petTouch.reaction, rt: tick - reactStart,
     drag: petTouch.dragged, lean: petTouch.lean, lt: landT,
     nb: dancing ? "" : neighbour,
-    zp: mode === "sleep" ? wallQ / 4 : 0
+    zp: mode === "sleep" ? wallQ / 4 : 0,
+    gt: greeting ? tick - greetStart : -1
   })
   readonly property string poseKey: scene.key
 

@@ -338,7 +338,7 @@ Item {
   // to a touch or a drag.
   property real clock: 0
   Timer {
-    interval: buddy.touch.busy ? 125 : 250
+    interval: buddy.touch.busy || buddy.greeting ? 125 : 250
     repeat: true
     running: root.active && buddy.needsClock
     onTriggered: root.clock += interval / 1000
@@ -351,6 +351,9 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskdisk"; rect: place.rect; active: root.active && !place.editing }
 
   PanelWindow {
     id: win
@@ -432,6 +435,7 @@ Item {
 
           PixelDisk {
             id: buddy
+            greetSerial: greet.serial
             px: 2
             mood: root.mood
             util: root.util

@@ -405,6 +405,9 @@ Item {
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
 
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskgames"; rect: place.rect; active: root.active && !place.editing }
+
   PanelWindow {
     id: win
     screen: root.targetScreen
@@ -464,6 +467,7 @@ Item {
 
           PixelGamer {
             id: gamer
+            greetSerial: greet.serial
             px: 2
             mood: root.mood
             strain: root.peerStrain

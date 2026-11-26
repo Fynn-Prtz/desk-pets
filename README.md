@@ -36,6 +36,10 @@ polled:
   sweats.
 - When a game is launching, a big **!** appears on the computer's screen and the cat's ears perk up.
 - When nothing is happening, everybody sleeps, with their z's in sync.
+- When you come back to the desk (the screensaver goes away, or your first input after a while), every
+  visible pet says hello once, card by card from left to right: the penguin waves and types "HI", the
+  hamster waves and offers you a seed, the cat lifts a headphone cup to listen, the dachshund spins, the
+  pigeon flies a loop and hands you a letter, the axolotl jumps with a "1UP".
 
 <p align="center"><img src="docs/screenshots/reactions.png" width="560" alt="Reactions to a game launch"></p>
 
@@ -108,6 +112,7 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
+| `welcome`, `welcomeAfter` | layout | `true` / 120 | Pets greet you when you come back; seconds without input that count as away (30–3600) |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 
 Dragged positions are stored in `~/.config/omarchy/desk-layout/<plugin>.json`. Right-click a card in layout

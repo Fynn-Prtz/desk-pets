@@ -65,11 +65,11 @@ Item {
   property bool blinking: false
 
   // True while the pet wants frames although its mood would let it rest.
-  readonly property bool moving: grooving || touch.busy || fidget !== ""
+  readonly property bool moving: grooving || touch.busy || fidget !== "" || greeting
   // The card's clock runs while this is true (125 ms while touch.busy).
   readonly property bool needsClock: mood !== "light" || moving
 
-  readonly property int tick: Math.round(clock * (touch.busy ? 8 : 4))
+  readonly property int tick: Math.round(clock * (touch.busy || greeting ? 8 : 4))
   readonly property int beat: Math.floor(clock * 2)
   // Wall-clock seconds, re-read on every tick: shared with the other pets
   // so z's float in sync and grooves land on the same beat.
@@ -124,6 +124,7 @@ Item {
       if (strain) p.g = odd ? "shake1" : "shake2"
       return p
     }
+    if (greeting) { greetPose(p); return p }
     if (grooving) {
       p.e = "happy"; p.m = "open"; p.t = grooveBeat % 2 ? "wag1" : "wag2"
       p.ea = grooveBeat % 2 ? "perk" : "flop"; p.hop = grooveBeat % 2 === 0 ? -1 : 0
@@ -193,6 +194,58 @@ Item {
   readonly property string key: [p.e, p.lx, p.ly, p.m, p.p, p.g, p.ea, p.t, p.c, p.sq, p.ln, p.bl, p.hx, p.hy].join("|")
   readonly property string groundKey: [p.sh, p.ho, p.mo, p.pi].join("|")
 
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  // Bolts upright ("!" if it was curled up asleep), spins round and round in
+  // place (the body sprite mirrors every quarter second, hopping on each
+  // turn), then sits and wags its whole back end off with a heart. Half
+  // buried under a full disk it can't spin: it pops its head up and wags.
+  property int greetSerial: 0
+  property real greetAt: 0
+  property bool greetWoke: false
+  readonly property bool greeting: greetPlay.running
+  readonly property real gt: clock - greetAt
+  readonly property bool greetFlip: greeting && !full && !touch.dragged && reaction === "" && gt >= 0.4 && gt < 1.6
+    && Math.floor((gt - 0.4) * 4) % 2 === 1
+  onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
+    fidget = ""; fidgetEnd.stop(); greetWoke = sleepy; greetAt = clock; greetPlay.restart()
+  }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+  Timer { id: greetPlay; interval: 2700 }
+  function greetPose(p) {
+    var odd = tick % 2 === 1
+    p.ea = "perk"; p.t = odd ? "wag1" : "wag2"; p.bl = 2
+    if (gt < 0.4) { p.e = "wide"; p.m = "o"; p.hop = gt < 0.25 ? -2 : -1 }
+    else if (gt < 1.6 && !full) {
+      var q = Math.floor((gt - 0.4) * 4)
+      p.e = "happy"; p.m = "open"; p.g = odd ? "walk1" : "walk2"; p.hop = q % 2 ? -1 : 0
+      p.ea = odd ? "flap1" : "flap2"
+    } else { p.e = "happy"; p.m = "open"; p.hop = tick % 4 === 0 ? -1 : 0; p.g = odd ? "tap" : "stand" }
+  }
+  readonly property bool greetFx: greeting && reaction === "" && !touch.dragged && !touch.landing
+  FxSprite {
+    px: pet.px
+    visible: pet.greetFx && pet.greetWoke && pet.gt < 0.4
+    palette: pet.inkFx
+    rows: PetFx.bang
+    cx: 25; cy: 2
+  }
+  FxSprite {
+    px: pet.px
+    readonly property real t: Math.min(1, (pet.gt - 1.6) / 1.0)
+    visible: pet.greetFx && pet.gt >= 1.6
+    palette: pet.heartFx
+    rows: PetFx.heart
+    opacity: t < 0.85 ? 1 : 0.5
+    cx: 26 + (pet.tick % 4 < 2 ? 0 : 1); cy: 8 - t * 7
+  }
+  FxSprite {
+    px: pet.px
+    visible: pet.greetFx && pet.gt >= 1.6 && pet.tick % 2 === 0
+    palette: pet.inkFx
+    rows: PetFx.effort
+    cx: 40; cy: 17
+  }
+
   // ---------- timers (only while visible and calm) ----------
   readonly property bool calm: active && !sleepy && !busy && !full && !grooving && reaction === "" && !touch.dragged
   Timer {
@@ -238,6 +291,7 @@ Item {
     y: pet.p.hop * pet.px
     palette: pet.bodyPalette
     rows: Sprites.dog(pet.key)
+    transform: Scale { origin.x: 22 * pet.px; xScale: pet.greetFlip ? -1 : 1 }
   }
   PixelSprite {
     px: pet.px
@@ -263,7 +317,7 @@ Item {
 
   readonly property bool petting: reaction === "pet" && !touch.dragged && !touch.landing
   readonly property bool annoyed: reaction === "annoyed" && !touch.dragged && !touch.landing
-  readonly property bool reacting: reaction !== "" || touch.dragged || touch.landing
+  readonly property bool reacting: reaction !== "" || touch.dragged || touch.landing || greeting
   readonly property bool frantic: p.dig === "frantic"
   readonly property bool sweating: (strain > 0 || full) && !touch.dragged
 

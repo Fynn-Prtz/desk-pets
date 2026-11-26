@@ -44,7 +44,7 @@ Item {
   readonly property bool grooving: catMood === "dance" && (mood === "sleep" || mood === "calm")
     && touch.reaction === "" && !touch.dragged && !touch.landing
   readonly property bool awake: mood !== "sleep" || touch.hovered || touch.reaction !== ""
-    || touch.dragged || touch.landing || grooving
+    || touch.dragged || touch.landing || grooving || greeting
 
   property bool blinking: false
   property string fidget: ""
@@ -53,7 +53,7 @@ Item {
   property real landT0: 0
 
   // Needs frames although the mood alone would rest (calm is still).
-  readonly property bool moving: touch.busy || grooving || fidget !== ""
+  readonly property bool moving: touch.busy || grooving || fidget !== "" || greeting
 
   readonly property int step: Math.floor(clock * 4 + 0.001)   // 4 per second
   readonly property int fstep: Math.floor(clock * 8 + 0.001)  // 8 per second (reactions)
@@ -99,6 +99,8 @@ Item {
       }
     } else if (touch.reaction === "annoyed") {
       o.cheek = Math.max(2, Math.min(5, baseCheek + 2)); o.eyes = "angry"; o.mouth = "pout"
+    } else if (greeting) {
+      greetSpec(o)
     } else if (grooving) {
       o.eyes = "happy"; o.mouth = beat % 4 < 2 ? "smile" : "open"; o.lean = beat % 2 ? 1 : -1
     } else if (mood === "sleep" && !touch.hovered) {
@@ -147,6 +149,7 @@ Item {
   readonly property int offY: touch.dragged ? -2
     : touch.reaction === "annoyed" ? (fstep % 4 < 2 ? -1 : 0)
     : touch.reaction === "pet" && !struggling ? (fstep % 8 < 2 ? -1 : 0)
+    : greeting && touch.reaction === "" ? (tGreet < 0.4 ? -1 : 0)
     : grooving ? (beat % 2 ? 0 : -1) : 0
 
   // ---------- timers (all stop when the card is inactive) ----------
@@ -364,6 +367,53 @@ Item {
       cx: (index === 0 ? 15 : 22) + dir * ph * 13
       cy: 21 + ph * ph * 12
     }
+  }
+
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  // Pops up ("!" if it was asleep), waves one paw high, then holds out a
+  // sunflower seed for you, its most precious thing. Stuffed cheeks stay
+  // stuffed; a struggling hamster still waves (sweat keeps dripping).
+  property int greetSerial: 0
+  property real greetT0: 0
+  property bool greetWoke: false
+  readonly property bool greeting: greetPlay.running
+  readonly property real tGreet: clock - greetT0
+  onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
+    fidget = ""; fidgetEnd.stop(); greetWoke = mood === "sleep" && !touch.hovered
+    greetT0 = clock; greetPlay.restart()
+  }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+  Timer { id: greetPlay; interval: 2700 }
+  function greetSpec(o) {
+    var t = tGreet, f = fstep
+    o.pile = Math.min(o.pile, 1)
+    if (t < 0.5) { o.eyes = "wide"; o.mouth = "open"; o.paws = "down"; o.pose = t < 0.25 ? "wiggle" : "sit" }
+    else if (t < 1.9) { o.paws = f % 4 < 2 ? "wave" : "wave2"; o.eyes = "happy"; o.mouth = f % 4 < 2 ? "open" : "smile"; o.nose = f % 2 }
+    else { o.paws = "hold"; o.item = o.cheek >= 3 ? "" : "seed"; o.eyes = "happy"; o.mouth = "omega" }
+  }
+  readonly property bool greetFx: greeting && touch.reaction === "" && !touch.dragged && !touch.landing
+  FxSprite {
+    visible: pet.greetFx && pet.greetWoke && pet.tGreet < 0.5
+    palette: pet.fxFg
+    rows: Fx.bang
+    cx: 36
+    cy: pet.tGreet < 0.25 ? 3 : 4
+  }
+  FxSprite {
+    visible: pet.greetFx && pet.tGreet >= 0.5 && pet.tGreet < 1.9 && pet.fstep % 4 < 2
+    palette: pet.fxFg
+    rows: Fx.sparkle[pet.fstep % 8 < 4 ? 0 : 1]
+    cx: 38
+    cy: 5
+  }
+  FxSprite {
+    readonly property real ph: Math.min(1, (pet.tGreet - 1.9) / 0.8)
+    visible: pet.greetFx && pet.tGreet >= 1.9
+    palette: pet.fxHeart
+    opacity: ph < 0.85 ? 1 : 0.5
+    rows: Fx.heartSmall
+    cx: 33
+    cy: 11 - ph * 6
   }
 
   // Input over the body (mask + hover/click/hold).

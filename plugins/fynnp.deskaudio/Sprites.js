@@ -268,6 +268,7 @@ function pawPath(kind, side, b) {
   case "lick2": return P(17.2, 21.8, 2.2, 1.8, false)
   case "clap":  return P(18.3, 26.4, 1.7, 2.0, false)
   case "open":  return P(12.8, 26.8, 1.8, 2.0, false)
+  case "cup":   return P(4.4, 15.6, 2.0, 1.9, true)    // welcome back: holds the lifted cup
   }
   return null
 }
@@ -500,6 +501,7 @@ function build(p) {
   // round the neck while it sleeps
   if (p.hp === "on") drawPhonesOn(g, hcx, hcy, hrx, hry, floorY)
   else if (p.hp === "neck") drawPhonesNeck(g, hcx, hcy, hrx, hry, floorY)
+  else if (p.hp === "lift") drawPhonesLift(g, hcx, hcy, hrx, hry, floorY)
 
   // -- raised paws in front of the body and face
   for (var ri = 0; ri < raised.length; ri++) {
@@ -857,7 +859,9 @@ function scene(s) {
   var out = { key: "", dx: 0, fx: [] }
   var p
   var t8 = s.t
-  if (s.drag) {
+  if (s.gt >= 0 && !s.drag && !(s.lt >= 0 && s.lt < 18) && !s.rea) {
+    p = greet(s, out)
+  } else if (s.drag) {
     p = pose({ body: "dangle", eyes: "wide", brow: "worry", mouth: "o", ears: "droop", tail: "rest", lean: s.lean || 0 })
     p.lx = -(s.lean || 0)
     var ph = t8 % 8
@@ -950,4 +954,57 @@ function fxRows(name, FX) {
   r = r || []
   fxMemo[name] = r
   return r
+}
+
+// ---------------------------------------------------------------- welcome back
+// The user is back (shared/PetGreet.qml). Awake, the DJ lifts its right
+// headphone cup off its ear with a paw to hear you ("hm?"), slow-blinks a
+// hello (if music plays, notes leak out of the lifted cup), puts the cup back
+// and gives a little wave. Asleep, it sits up from the loaf, phones still round
+// its neck, and gives you the slow cat blink with its tail up.
+// s.gt: ticks (1/8 s) since the greeting started, -1 = none; ~22 ticks.
+
+PAWS.liftR = ["down", "cup"]
+
+function drawPhonesLift(g, hcx, hcy, hrx, hry, floorY) {
+  // band still over the head; the right cup is held up off the ear
+  var band = arc(hcx, hcy + 0.4, hrx - 0.4, hry + 0.6, 196, 330, 13)
+  layer(g, function(x, y) { return polyHit(band, x, y).d <= 0.85 }, function(x, y, inside) {
+    return (y === 0 || !inside[y - 1][x]) ? "d" : "e"
+  }, floorY)
+  drawCup(g, hcx - hrx + 0.2, hcy + 0.8, -1, 2.5, 3.5, floorY)
+  drawCup(g, hcx + hrx + 2.6, hcy - 4.6, 1, 2.5, 3.3, floorY)
+}
+
+function greet(s, out) {
+  var gt = s.gt, p
+  if (s.mode === "sleep") {
+    if (gt < 4) {
+      p = sleep({ t: s.t, zp: s.zp, hov: false }, { fx: [] })
+      p.eyes = gt < 2 ? "peek" : "wide"; p.ears = "perk"
+      out.fx.push({ n: "bang", x: 33, y: gt < 2 ? 12 : 11, c: "o", o: 1 })
+    } else if (gt < 18) {
+      p = pose({ hp: "neck", tail: "up", ears: "perk", mouth: "w", blush: 2 })
+      p.eyes = gt < 7 ? "open" : gt < 14 ? "happy" : "half"   // the slow blink
+      if (gt >= 8) { var h = riser("heartSmall", (gt - 8) / 12, 33, 10, 7, 1, "r"); if (h) out.fx.push(h) }
+    } else {
+      p = pose({ hp: "neck", tail: "mid", eyes: "open", mouth: "smile", blush: 2 })
+    }
+    return p
+  }
+  if (gt < 4) {
+    p = pose({ hp: "lift", paws: "liftR", ears: "perk", eyes: "wide", mouth: "o", tail: "up" })
+    out.fx.push({ n: "question", x: 36, y: 2, c: "o", o: 1 })
+  } else if (gt < 15) {
+    p = pose({ hp: "lift", paws: "liftR", ears: "perk", eyes: gt < 12 ? "happy" : "open", mouth: "w", blush: 2,
+               tail: (gt >> 1) % 2 ? "up" : "mid" })
+    var h2 = riser("heart", (gt - 4) / 14, 1, 22, 9, 1, "r")
+    if (h2) out.fx.push(h2)
+    if (s.mode === "dance") {
+      var n1 = riser("noteSmall", (gt - 4) / 8, 39, 6, 6, 1, "o"); if (n1) out.fx.push(n1)
+    }
+  } else {
+    p = pose({ hp: "on", paws: (gt >> 1) % 2 ? "waveL" : "waveL2", ears: "n", eyes: "happy", mouth: "smile", blush: 2, tail: "up" })
+  }
+  return p
 }

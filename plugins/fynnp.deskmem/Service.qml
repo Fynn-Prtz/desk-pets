@@ -259,7 +259,7 @@ Item {
   // hamster just blinks on its own timer). 8 fps only during reactions.
   property real clock: 0
   Timer {
-    interval: hamster.touch.busy ? 125 : 250
+    interval: hamster.touch.busy || hamster.greeting ? 125 : 250
     repeat: true
     running: root.active && (root.petMood !== "calm" || hamster.moving)
     onTriggered: root.clock += interval / 1000
@@ -307,6 +307,9 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskmem"; rect: place.rect; active: root.active && !place.editing }
 
   PanelWindow {
     id: win
@@ -388,6 +391,7 @@ Item {
 
           PixelHamster {
             id: hamster
+            greetSerial: greet.serial
             px: 2
             mood: root.petMood
             fill: root.usedFraction

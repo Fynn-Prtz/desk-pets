@@ -343,7 +343,7 @@ Item {
   // Slow tick (4 fps) so the cat keeps living with no audio frames; 8 fps
   // only while a touch reaction, drag or landing plays. Adds seconds.
   Timer {
-    interval: cat.touch.busy ? 125 : 250
+    interval: cat.touch.busy || cat.greeting ? 125 : 250
     repeat: true
     running: root.active && !frames.running
     onTriggered: root.clock += interval / 1000
@@ -446,6 +446,9 @@ Item {
   readonly property int pad: Style.space(14)
 
   // ---------- the desktop window ----------
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskaudio"; rect: place.rect; active: root.active && !place.editing }
+
   PanelWindow {
     id: win
     screen: root.targetScreen
@@ -518,6 +521,7 @@ Item {
 
           PixelCat {
             id: cat
+            greetSerial: greet.serial
             px: 2
             place: place
             level: root.level

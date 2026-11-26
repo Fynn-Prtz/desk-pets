@@ -22,6 +22,7 @@ import "PetFx.js" as PetFx
 // -> "!" on the screen; gamer playing while stressed -> gamepad on the screen.
 // Touch (PetTouch): pet (heart on the screen), annoyed, squish, hover (eyes
 // follow), drag (penguin lifted, flails), landing (squash + dust, then dizzy).
+// Welcome back (greetSerial from PetGreet): wakes, waves, "HI" on the CRT.
 Item {
   id: buddy
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
@@ -47,9 +48,9 @@ Item {
 
   // Wants frames although the mood alone would rest (the service keeps its
   // clock running for this).
-  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running
+  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running || greeting
   // Reactions, drags and landings play at 8 fps; everything else at 4.
-  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
+  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running || greeting)
 
   // Wall-clock seconds, re-read on every tick: shared with the cat so z's
   // and the groove beat line up across cards.
@@ -98,6 +99,16 @@ Item {
   // Landing: 0.3 s squash + dust, a little rebound, then a dizzy wobble.
   Timer { id: landPlay; interval: 1500 }
 
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  property int greetSerial: 0
+  property real greetStart: 0
+  readonly property bool greeting: greetPlay.running
+  onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
+    fidget = ""; fidgetEnd.stop(); greetStart = clock; greetPlay.restart()
+  }
+  Timer { id: greetPlay; interval: 2700 }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+
   PetTouch {
     id: touch
     anchors.fill: parent
@@ -123,7 +134,8 @@ Item {
     landT: landPlay.running && !touch.dragged ? buddy.clock - buddy.landStart : -1,
     grooving: buddy.grooving,
     beat: Math.floor(buddy.wall * 4),
-    screenKey: buddy.screenKey
+    screenKey: buddy.screenKey,
+    greetT: greetPlay.running ? buddy.clock - buddy.greetStart : -1
   }, PetFx)
 
   readonly property var bodyPalette: colors.extend({ "L": colors.accent })
