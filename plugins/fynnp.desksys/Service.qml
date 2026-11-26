@@ -250,7 +250,8 @@ Item {
   readonly property real load: Math.max(cpu, hasGpu ? gpu : 0)
   readonly property bool cpuHot: cpuTemp >= 90
   readonly property bool gpuHot: gpuTemp >= 85
-  readonly property string mood: !ready ? "idle"
+  readonly property string mood: demoMood !== "" ? demoMood : liveMood
+  readonly property string liveMood: !ready ? "idle"
     : (cpuHot || gpuHot) ? "hot"
     : load < 8 ? "idle"
     : load < 35 ? "chill"
@@ -286,6 +287,18 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Demo / test hook for tools/pet-demo: override the pet's mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "desksys"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") buddy.touch.landings++
+      else buddy.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
 
   PanelWindow {
     id: win

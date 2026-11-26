@@ -330,7 +330,8 @@ Item {
   readonly property var lastGame: games.length > 0 && games[0].last > 0 ? games[0] : null
   readonly property bool freshReport: !!report && report.end > 0 && now - report.end < 1800 && now - report.end > -60
   readonly property bool recent: !!lastGame && now - lastGame.last < 3600
-  readonly property string mood: launching ? "launching"
+  readonly property string mood: demoMood !== "" ? demoMood : liveMood
+  readonly property string liveMood: launching ? "launching"
     : playing ? "playing"
     : freshReport ? "report"
     : (hovering || recent) ? "ready"
@@ -404,6 +405,18 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Demo / test hook for tools/pet-demo: override the pet's mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "deskgames"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") gamer.touch.landings++
+      else gamer.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
 
   PanelWindow {
     id: win

@@ -245,7 +245,8 @@ Item {
   readonly property bool critical: usedFraction > 0.9
 
   // Hamster ladder. Growing memory wakes it / gets it stuffing early.
-  readonly property string petMood: {
+  readonly property string petMood: demoMood !== "" ? demoMood : livePetMood
+  readonly property string livePetMood: {
     var u = usedFraction
     if (!ready) return "sleep"
     if (u < 0.35) return growing ? "calm" : "sleep"
@@ -307,6 +308,18 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Demo / test hook for tools/pet-demo: override the pet's mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "deskmem"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") hamster.touch.landings++
+      else hamster.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
 
   PanelWindow {
     id: win

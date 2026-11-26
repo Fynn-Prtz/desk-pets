@@ -264,7 +264,8 @@ Item {
     for (var i = Math.max(0, n - 3); i < n; i++) m = Math.max(m, rxHistory[i] + txHistory[i])
     return m
   }
-  readonly property string mood: !ready ? "idle"
+  readonly property string mood: demoMood !== "" ? demoMood : liveMood
+  readonly property string liveMood: !ready ? "idle"
     : !online ? "offline"
     : recent < 24000 ? "idle"
     : recent < 500000 ? "light"
@@ -300,6 +301,18 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Demo / test hook for tools/pet-demo: override the pet's mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "desknet"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") buddy.touch.landings++
+      else buddy.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
 
   PanelWindow {
     id: win

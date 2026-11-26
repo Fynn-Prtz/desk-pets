@@ -350,7 +350,11 @@ Item {
   }
 
   // Mood bus to the other desk cards (see DeskLink.qml).
-  readonly property string catMood: playing ? "dance" : lively ? "idle" : "sleep"
+  readonly property string catMood: petPlaying ? "dance" : petLevel > 0.02 ? "idle" : "sleep"
+  // Demo moods (tools/pet-demo) fake the level/playing the cat sees; the bars stay live.
+  readonly property var demoLevels: ({ sleep: 0, idle: 0.1, dance: 0.45, loud: 1 })
+  readonly property real petLevel: demoMood !== "" ? (demoLevels[demoMood] || 0) : level
+  readonly property bool petPlaying: demoMood !== "" ? (demoMood === "dance" || demoMood === "loud") : playing
   DeskLink { id: link; name: "cat"; mood: root.catMood }
 
   // 30 fps is plenty for pixel art and keeps a 165 Hz monitor from redrawing
@@ -446,6 +450,18 @@ Item {
   readonly property int pad: Style.space(14)
 
   // ---------- the desktop window ----------
+  // Demo / test hook for tools/pet-demo: override the pet's mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "deskaudio"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") cat.touch.landings++
+      else cat.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
+
   PanelWindow {
     id: win
     screen: root.targetScreen
@@ -520,8 +536,8 @@ Item {
             id: cat
             px: 2
             place: place
-            level: root.level
-            playing: root.playing
+            level: root.petLevel
+            playing: root.petPlaying
             clock: root.clock
             active: root.active
             buddyMood: link.peers.buddy || ""

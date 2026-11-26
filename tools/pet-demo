@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# pet-demo: run the desk pets through all their moods, touch reactions and neighbour moments, live on the
+# desktop, so you can look at every animation without waiting for the real load/temps/traffic.
+#
+#   tools/pet-demo [sys|mem|disk|net|games|audio|all ...] [-s SECONDS] [--stay]
+#
+# Default: all pets, 5 s per state. Switches DP-1 to an empty workspace while it runs (so the cards aren't
+# covered) and switches back at the end. --stay keeps the current workspace. Ctrl+C restores everything.
+# Uses the cards' IPC hooks: omarchy-shell <card> demo <mood|""> and omarchy-shell <card> react <kind>.
+set -u
+SECS=5; STAY=0; PICK=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s|--secs) SECS="$2"; shift ;;
+    --stay) STAY=1 ;;
+    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) PICK+=("$1") ;;
+  esac
+  shift
+done
+[ ${#PICK[@]} -eq 0 ] && PICK=(all)
+[ "${PICK[0]}" = all ] && PICK=(sys mem disk net games audio)
+
+B=$'\e[1m'; DIM=$'\e[2m'; R=$'\e[0m'; C=$'\e[36m'
+CARDS=(desksys deskmem deskdisk desknet deskgames deskaudio)
+ipc() { omarchy-shell "$@" >/dev/null 2>&1; }
+say() { printf '  %s%-9s%s %s\n' "$C" "$1" "$R" "$2"; }
+hold() { sleep "${1:-$SECS}"; }
+
+home_ws=""
+reset() {
+  for c in "${CARDS[@]}"; do ipc "$c" demo ""; ipc "$c" react none; done
+  [ -n "$home_ws" ] && hyprctl dispatch "hl.dsp.focus({ workspace = \"$home_ws\" })" >/dev/null
+}
+trap 'reset; echo; exit 130' INT TERM
+
+if [ "$STAY" -eq 0 ]; then
+  home_ws=$(hyprctl monitors -j | jq -r '.[] | select(.name == "DP-1") | .activeWorkspace.id')
+  used=$(hyprctl workspaces -j | jq -r '.[] | select(.windows > 0) | .id')
+  for w in 9 8 7 6 10 5; do grep -qx "$w" <<<"$used" || { empty=$w; break; }; done
+  hyprctl dispatch "hl.dsp.focus({ monitor = \"DP-1\" })" >/dev/null
+  hyprctl dispatch "hl.dsp.focus({ workspace = \"${empty:-9}\" })" >/dev/null
+fi
+
+# mood <card> <label> <mood...>: each mood for SECS, then the touch reactions in the last one
+moods() {
+  local card=$1 label=$2; shift 2
+  echo; echo "${B}$label${R} ${DIM}($card)${R}"
+  for m in "$@"; do say "$m" "mood"; ipc "$card" demo "$m"; hold; done
+}
+reactions() {
+  local card=$1 base=$2
+  ipc "$card" demo "$base"
+  say pet "click = pet (hearts)";          ipc "$card" react pet;     hold 3
+  say annoyed "4+ quick clicks";           ipc "$card" react annoyed; hold 3.5
+  say squish "hold = squish";              ipc "$card" react squish;  hold 2.5; ipc "$card" react pet; hold 2
+  say landing "dropped after a drag";      ipc "$card" react land;    hold 3
+  ipc "$card" demo ""
+}
+
+for p in "${PICK[@]}"; do
+  case "$p" in
+    sys)
+      moods desksys "🐧 Penguin" idle chill work load maxed hot
+      reactions desksys chill
+      echo "  ${DIM}neighbours${R}"
+      ipc desksys demo chill
+      say groove "cat dances -> penguin grooves";      ipc deskaudio demo dance; hold; ipc deskaudio demo ""
+      say "!" "axolotl launches a game";               ipc deskgames demo launching; hold; ipc deskgames demo ""
+      ipc desksys demo load
+      say gamepad "playing while the PC is loaded";    ipc deskgames demo playing; hold; ipc deskgames demo ""
+      ipc desksys demo "" ;;
+    mem)   moods deskmem "🐹 Hamster" sleep calm busy strain critical;   reactions deskmem calm ;;
+    disk)  moods deskdisk "🐕 Dachshund" idle light busy full;           reactions deskdisk light ;;
+    net)   moods desknet "🕊  Pigeon" idle light busy offline;           reactions desknet light ;;
+    games)
+      moods deskgames "🦎 Axolotl" idle ready launching playing report
+      reactions deskgames ready
+      echo "  ${DIM}neighbours${R}"
+      ipc deskgames demo playing
+      say sweat "penguin under load while playing";    ipc desksys demo load; hold; ipc desksys demo maxed; hold; ipc desksys demo ""
+      say bop "cat dances";                            ipc deskgames demo ready; ipc deskaudio demo dance; hold; ipc deskaudio demo ""
+      ipc deskgames demo "" ;;
+    audio) moods deskaudio "🐱 DJ cat" sleep idle dance loud;            reactions deskaudio idle ;;
+    *) echo "unknown pet '$p' (sys mem disk net games audio all)" >&2 ;;
+  esac
+done
+reset
+echo; echo "${DIM}done, everything is back on live data${R}"

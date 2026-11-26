@@ -308,7 +308,8 @@ Item {
   readonly property real ioRate: readRate + writeRate
   // The dachshund's ladder: busy digs/buries; from util 50 % / 50 MB/s on it
   // struggles (PixelDisk reads util and the rates for that).
-  readonly property string mood: !ready ? "idle"
+  readonly property string mood: demoMood !== "" ? demoMood : liveMood
+  readonly property string liveMood: !ready ? "idle"
     : anyFull ? "full"
     : util >= 20 || ioRate >= 8e6 ? "busy"
     : ioRate >= 0.5e6 ? "light"
@@ -351,6 +352,18 @@ Item {
   // ---------- look ----------
   readonly property int cardWidth: 360
   readonly property int pad: Style.space(14)
+
+  // Demo / test hook for tools/pet-demo: override the pet's mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "deskdisk"
+    function demo(mood: string): void { root.demoMood = mood }
+    function react(kind: string): void {
+      if (kind === "land") buddy.touch.landings++
+      else buddy.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
 
   PanelWindow {
     id: win
