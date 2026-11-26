@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
 
 // Dachshund pet for the Desk Disk card (round 2; px 2 on a 44x38 cell
@@ -30,6 +31,7 @@ import "PetFx.js" as PetFx
 Item {
   id: pet
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | light | busy | full
   property real util: 0          // % busy, busiest disk
   property real readRate: 0      // bytes/s
@@ -190,8 +192,11 @@ Item {
     return p
   }
   readonly property var p: pose()
-  readonly property string key: [p.e, p.lx, p.ly, p.m, p.p, p.g, p.ea, p.t, p.c, p.sq, p.ln, p.bl, p.hx, p.hy].join("|")
-  readonly property string groundKey: [p.sh, p.ho, p.mo, p.pi].join("|")
+  readonly property string key: [p.e, p.lx, p.ly, p.m, p.p, p.g, p.ea, p.t, p.c, p.sq, p.ln, p.bl, p.hx, p.hy, season, seasonConf].join("|")
+  readonly property string groundKey: [p.sh, p.ho, p.mo, p.pi, season].join("|")
+  // Season: confetti raining while petted on party days (not with motion "still").
+  readonly property string seasonConf: season === "party" && reaction === "pet" && motion !== "still" && rt < 2
+    ? String(Math.floor(rt * 8) / 16) : ""
 
   // ---------- timers (only while visible and calm) ----------
   readonly property bool calm: active && !sleepy && !busy && !full && !grooving && reaction === "" && !touch.dragged
@@ -219,7 +224,7 @@ Item {
   onCalmChanged: if (!calm) { fidget = ""; fidgetEnd.stop() }
 
   // ---------- palettes ----------
-  readonly property var bodyPalette: colors.base
+  readonly property var bodyPalette: season !== "" ? colors.extend(PetSeason.palette(colors.bg, Qt.rgba)) : colors.base
   readonly property var inkFx: colors.fx(colors.fg)
   readonly property var heartFx: colors.fx(colors.urgent)
   readonly property var sweatFx: colors.fx(colors.base.w)
@@ -229,7 +234,7 @@ Item {
   PixelSprite {
     px: pet.px
     palette: pet.bodyPalette
-    rows: Sprites.ground(pet.groundKey)
+    rows: Sprites.ground(pet.groundKey, PetSeason)
   }
   PixelSprite {
     id: body
@@ -237,7 +242,7 @@ Item {
     x: pet.p.dx * pet.px
     y: pet.p.hop * pet.px
     palette: pet.bodyPalette
-    rows: Sprites.dog(pet.key)
+    rows: Sprites.dog(pet.key, PetSeason)
   }
   PixelSprite {
     px: pet.px

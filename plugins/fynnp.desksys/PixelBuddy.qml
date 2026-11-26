@@ -1,6 +1,7 @@
 import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
+import "PetSeason.js" as PetSeason
 
 // Pixel penguin at a tiny CRT (px 2 on the shared 44x38 pet canvas,
 // docs/PETS.md). The penguin stands at a little desk with a beige CRT, a
@@ -25,6 +26,7 @@ import "PetFx.js" as PetFx
 Item {
   id: buddy
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | chill | work | load | maxed | hot
   property real clock: 0
   property int px: 2
@@ -123,10 +125,18 @@ Item {
     landT: landPlay.running && !touch.dragged ? buddy.clock - buddy.landStart : -1,
     grooving: buddy.grooving,
     beat: Math.floor(buddy.wall * 4),
-    screenKey: buddy.screenKey
-  }, PetFx)
+    screenKey: buddy.screenKey,
+    season: buddy.season,
+    motion: buddy.motion
+  }, PetFx, PetSeason)
 
-  readonly property var bodyPalette: colors.extend({ "L": colors.accent })
+  // season keys (PetSeason.COLORS) only while a season is on
+  readonly property var seasonKeys: season !== "" ? PetSeason.palette(colors.bg, Qt.rgba) : ({})
+  readonly property var bodyPalette: {
+    var extra = { "L": colors.accent }
+    for (var k in seasonKeys) extra[k] = seasonKeys[k]
+    return colors.extend(extra)
+  }
   readonly property var fxPalettes: ({
     "o": colors.fx(colors.fg),
     "r": colors.fx(colors.urgent),

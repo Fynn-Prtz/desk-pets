@@ -128,11 +128,11 @@ function shader(base, hiRight) {
 //
 // A pose is a flat object; its key is the fields joined with "|".
 var FIELDS = ["body", "lift", "hx", "hy", "face", "eyes", "lx", "ly", "brow",
-              "mouth", "blush", "ears", "paws", "tail", "puff", "lean", "breath", "hp"]
+              "mouth", "blush", "ears", "paws", "tail", "puff", "lean", "breath", "hp", "acc", "conf"]
 
 function pose(over) {
   var p = { body: "sit", lift: 0, hx: 0, hy: 0, face: "f", eyes: "open", lx: 0, ly: 0, brow: "-",
-            mouth: "w", blush: 1, ears: "n", paws: "down", tail: "rest", puff: 0, lean: 0, breath: 0, hp: "on" }
+            mouth: "w", blush: 1, ears: "n", paws: "down", tail: "rest", puff: 0, lean: 0, breath: 0, hp: "on", acc: "", conf: "" }
   if (over) for (var k in over) p[k] = over[k]
   return p
 }
@@ -500,6 +500,7 @@ function build(p) {
   // round the neck while it sleeps
   if (p.hp === "on") drawPhonesOn(g, hcx, hcy, hrx, hry, floorY)
   else if (p.hp === "neck") drawPhonesNeck(g, hcx, hcy, hrx, hry, floorY)
+  if (p.acc && SEASON) seasonCat(g, p, hcx, hcy, hry)   // season: hat on the headphone band
 
   // -- raised paws in front of the body and face
   for (var ri = 0; ri < raised.length; ri++) {
@@ -526,6 +527,7 @@ function build(p) {
   for (var x3 = minX - 1; x3 <= maxX + 1; x3++) if (g[FLOOR][x3] === ".") g[FLOOR][x3] = "t"
   for (var x4 = minX + 2; x4 <= maxX - 2; x4++) if (g[FLOOR + 1][x4] === ".") g[FLOOR + 1][x4] = "t"
 
+  if (p.conf !== "" && SEASON) seasonConfetti(g, parseFloat(p.conf))   // season: confetti burst
   var out = []
   for (var y5 = 0; y5 < H; y5++) out.push(g[y5].join(""))
   return out
@@ -573,7 +575,8 @@ function drawPhonesNeck(g, hcx, hcy, hrx, hry, floorY) {
 function emptyRow() { var r = []; for (var x = 0; x < W; x++) r.push("."); return r }
 
 var memo = {}
-function rows(key) {
+function rows(key, season0) {
+  if (season0) SEASON = season0
   var r = memo[key]
   if (!r) { r = build(parseKey(key)); memo[key] = r }
   return r
@@ -927,6 +930,7 @@ function scene(s) {
   } else {
     p = idle(s, out)
   }
+  seasonScene(p, s)
   out.key = keyOf(p)
   if (out.fx.length > FX_SLOTS) out.fx = out.fx.slice(0, FX_SLOTS)
   return out
@@ -950,4 +954,38 @@ function fxRows(name, FX) {
   r = r || []
   fxMemo[name] = r
   return r
+}
+
+// ---------------------------------------------------------------- season
+//
+// Seasonal outfit (shared/PetSeason.js): the DJ wears the hat ON its
+// headphone band, slouched to one side, ears poking out: a floppy Santa hat
+// at Christmas, a witch hat in October (a cat's natural Halloween look), a
+// party hat on party days, plus confetti on the floor and a confetti burst
+// while it is petted (s.motion "still": no burst). Pose fields acc + conf.
+
+var SEASON = null    // PetSeason, handed in by the QML (rows(key, PetSeason))
+
+function seasonScene(p, s) {
+  if (!s.season) return
+  p.acc = s.season
+  if (s.season === "party" && s.rea === "pet" && s.motion !== "still" && s.rt < 16) p.conf = String(Math.floor(s.rt) / 16)
+}
+
+function seasonCat(g, p, hcx, hcy, hry) {
+  var top = Math.round(hcy - hry)
+  function q(x, y, c) { put(g, x, y, c) }
+  var side = p.face === "l" ? -1 : 1
+  if (p.acc === "xmas") SEASON.stampHat(q, SEASON.hat("santa", 9, 4, side), Math.round(hcx) - side, top + 2)
+  else if (p.acc === "spooky") SEASON.stampHat(q, SEASON.hat("witch", 10, 6, -side), Math.round(hcx), top + 1)
+  else if (p.acc === "party") {
+    SEASON.stampHat(q, SEASON.hat("party", 7, 6, side), Math.round(hcx) + side * 2, top + 1)
+    var bits = SEASON.confetti(9, 10, 1, 36, 42, 37, -1)
+    for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".t")
+  }
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(13, 16, 1, 0, 42, 33, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
 }

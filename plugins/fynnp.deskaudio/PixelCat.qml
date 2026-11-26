@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
 
 // Pixel cat (v2): a sitting tabby on a 44x38 cell grid at px 2. All the
@@ -23,6 +24,7 @@ import "PetFx.js" as PetFx
 Item {
   id: cat
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property real level: 0
   property bool playing: false
   property real clock: 0
@@ -117,7 +119,8 @@ Item {
     rea: petTouch.reaction, rt: tick - reactStart,
     drag: petTouch.dragged, lean: petTouch.lean, lt: landT,
     nb: dancing ? "" : neighbour,
-    zp: mode === "sleep" ? wallQ / 4 : 0
+    zp: mode === "sleep" ? wallQ / 4 : 0,
+    season: season, motion: motion
   })
   readonly property string poseKey: scene.key
 
@@ -132,8 +135,8 @@ Item {
     px: cat.px
     x: cat.scene.dx * cat.px
     y: 0
-    palette: colors.base
-    rows: Sprites.rows(cat.poseKey)
+    palette: cat.season !== "" ? colors.extend(PetSeason.palette(colors.bg, Qt.rgba)) : colors.base
+    rows: Sprites.rows(cat.poseKey, PetSeason)
   }
 
   // Effect slots: hearts, notes, z's, sweat, sparkles… positioned in cells.

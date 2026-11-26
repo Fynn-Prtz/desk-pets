@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as Fx
 
 // Pixel hamster that hoards RAM in its cheek pouches (docs/PETS.md).
@@ -22,6 +23,7 @@ import "PetFx.js" as Fx
 Item {
   id: pet
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
 
   property string mood: "sleep"   // sleep | calm | busy | strain | critical
   property real fill: 0           // used memory 0..1 (pouch size)
@@ -133,6 +135,10 @@ Item {
       if (o.eyes === "open" || o.eyes === "wide" || o.eyes === "worried") o.look = [touch.lookX, touch.lookY]
       if (o.pose !== "ball" && !struggling) o.nose = f % 4 < 2 ? 1 : 0
     }
+    // Season: outfit + confetti while petted on party days (not with motion "still").
+    o.acc = season
+    if (season === "party" && touch.reaction === "pet" && motion !== "still" && clock - reactT0 < 2)
+      o.conf = Math.floor((clock - reactT0) * 8) / 16
     return Sprites.key(o)
   }
 
@@ -178,7 +184,7 @@ Item {
   onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop(); blinking = false }
 
   // ---------- palettes ----------
-  readonly property var pal: colors.base
+  readonly property var pal: season !== "" ? colors.extend(PetSeason.palette(colors.bg, Qt.rgba)) : colors.base
   readonly property var fxFg: colors.fx(colors.fg)
   readonly property var fxHeart: colors.fx(colors.urgent)
   readonly property var fxSweat: colors.fx(colors.base.h)
@@ -190,7 +196,7 @@ Item {
     x: pet.offX * pet.px
     y: pet.offY * pet.px
     palette: pet.pal
-    rows: Sprites.frame(pet.frameKey)
+    rows: Sprites.frame(pet.frameKey, PetSeason)
   }
 
   // ---------- effects (whole-cell positions; cells -> px) ----------

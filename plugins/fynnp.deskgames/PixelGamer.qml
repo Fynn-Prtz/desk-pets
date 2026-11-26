@@ -1,6 +1,7 @@
 import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
+import "PetSeason.js" as PetSeason
 
 // Pixel axolotl gamer (px 2 on the shared 44x38 pet canvas, docs/PETS.md):
 // big round head with pink frilly gills, chubby body, tail, mitten arms
@@ -25,6 +26,7 @@ import "PetFx.js" as PetFx
 Item {
   id: gamer
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | ready | launching | playing | report
   property int strain: 0         // 0 calm | 1 system under load | 2 maxed / hot
   property bool bop: false
@@ -116,8 +118,10 @@ Item {
     dragged: touch.dragged,
     lean: touch.lean,
     landT: landPlay.running && !touch.dragged ? gamer.clock - gamer.landStart : -1,
-    beat: Math.floor(gamer.wall * 4)
-  }, PetFx)
+    beat: Math.floor(gamer.wall * 4),
+    season: gamer.season,
+    motion: gamer.motion
+  }, PetFx, PetSeason)
 
   readonly property var fxPalettes: ({
     "o": colors.fx(colors.fg),
@@ -138,7 +142,7 @@ Item {
     px: gamer.px
     x: gamer.scene.x * gamer.px
     y: gamer.scene.y * gamer.px
-    palette: colors.base
+    palette: gamer.season !== "" ? colors.extend(PetSeason.palette(colors.bg, Qt.rgba)) : colors.base
     rows: gamer.scene.rows
   }
 

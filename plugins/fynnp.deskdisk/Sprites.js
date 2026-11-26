@@ -210,7 +210,8 @@ var BLOCK = [
 // ---------- the dog ----------
 var cache = {}
 var cacheSize = 0
-function dog(key) {
+function dog(key, season0) {
+  if (season0) SEASON = season0
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -225,7 +226,7 @@ function build(k) {
     eyes: k[0] || "open", lx: +k[1] || 0, ly: +k[2] || 0, mouth: k[3] || "smile",
     pose: k[4] || "stand", legs: k[5] || "stand", ears: k[6] || "flop", tail: k[7] || "up",
     carry: k[8] || "", sq: +k[9] || 0, lean: +k[10] || 0, blush: +k[11] || 0,
-    hx: +k[12] || 0, hy: +k[13] || 0
+    hx: +k[12] || 0, hy: +k[13] || 0, acc: SEASON ? k[14] || "" : "", conf: k[15] ? +k[15] : -1
   }
   var g = grid()
   var sq = o.sq, pose = o.pose
@@ -334,6 +335,7 @@ function build(k) {
     return "b"
   })
 
+  if (o.acc) seasonBody(g, o, inBody, body)   // season: sweater / skeleton costume
   // the near legs over the body
   if (pose !== "curl") layer(g, legMask(near), legFill("b"))
 
@@ -432,7 +434,9 @@ function build(k) {
   if (o.carry === "bone") stamp(g, BONE, Math.round(mcx) - 11, noseY + 1, false, { o: "e" })
   if (o.carry === "block") stamp(g, BLOCK, Math.round(mcx) - 3, noseY + 2, false, { o: "e" })
 
+  if (o.acc) seasonHead(g, o, hcx, hcy, hry)   // season: party hat
   if (o.lean) shear(g, o.lean, footY)
+  if (o.conf >= 0) seasonConfetti(g, o.conf)   // season: confetti burst
 
   var out = []
   for (var y = 0; y < H; y++) out.push(g[y].join(""))
@@ -455,7 +459,7 @@ function shear(g, dir, pivot) {
 // ---------- the ground ----------
 // ground(key): behind the dog; front(key): heaps drawn over it (full disk).
 var gcache = {}
-function ground(key) { return groundLayer(String(key), false) }
+function ground(key, season0) { if (season0) SEASON = season0; return groundLayer(String(key), false) }
 function front(key) { return groundLayer(String(key), true) }
 function groundLayer(key, fore) {
   var ck = (fore ? "F" : "B") + key
@@ -463,6 +467,7 @@ function groundLayer(key, fore) {
   if (hit) return hit
   var k = key.split("|")
   var rows = buildGround(+k[0] || 0, +k[1] || 0, +k[2] || 0, +k[3] || 0, fore)
+  if (k[4] === "party" && !fore && SEASON) rows = seasonFloor(rows)   // season: confetti on the floor
   gcache[ck] = rows
   return rows
 }
@@ -566,3 +571,60 @@ var bark = [
   ".o.o.",
   "....."
 ]
+
+// ---------- season (shared/PetSeason.js) ----------
+//
+// The eager sausage dog gets dressed up by its people: a red knitted
+// Christmas sweater with a white zigzag band and green dots over the whole
+// long body, a black skeleton costume (spine + ribs) in October, a party hat
+// between the ears on party days with confetti on the floor and raining down
+// while petted. Dog key fields 14 (acc) + 15 (conf), ground key field 4.
+
+var SEASON = null    // PetSeason, handed in by the QML (dog(key, PetSeason))
+
+function seasonBody(g, o, inBody, body) {
+  if (o.acc !== "xmas" && o.acc !== "spooky") return
+  var x0 = body[0][0] - 3, x1 = body[1][0] + 3
+  var ys = [], yTop = H, yBot = -1
+  for (var y = 0; y < H; y++) for (var x = x0; x <= x1; x++) if (inBody(x, y)) { yTop = Math.min(yTop, y); yBot = Math.max(yBot, y) }
+  var mid = Math.round((yTop + yBot) / 2)
+  layer(g, function(x, y) { return inBody(x, y) && x >= body[0][0] - 2 }, function(x, y, inside) {
+    var top = !IN(inside, x, y - 1), bot = !IN(inside, x, y + 1), right = !IN(inside, x + 1, y)
+    var left = !IN(inside, x - 1, y) || !IN(inside, x - 2, y)
+    if (o.acc === "xmas") {
+      if (left) return (y % 2 === 0) ? "W" : "V"                       // ribbed collar
+      if (bot || right) return "M"
+      var zig = mid + ((x % 4 < 2) ? (x % 2) : 1 - (x % 2)) - 1      // zigzag band
+      if (y === zig || y === zig + 1 && x % 4 === 1) return "W"
+      if (y === yTop + 1 && x % 4 === 3) return "G"
+      if (y === yBot - 1 && x % 4 === 1) return "G"
+      return top ? "R" : "R"
+    }
+    // skeleton costume: black suit, white spine along the top, ribs below
+    if (left) return "V"
+    if (top) return "e"
+    if (y === yTop + 1) return x % 3 === 0 ? "V" : "W"
+    if (y > yTop + 1 && y < yBot - 1 && x % 3 === 1 && x < body[1][0] - 2) return y === yBot - 2 ? "V" : "W"
+    return "e"
+  })
+}
+
+function seasonHead(g, o, hcx, hcy, hry) {
+  if (o.acc !== "party") return
+  SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("party", 8, 6, -1), Math.round(hcx) + 1, Math.ceil(hcy - hry) + 1)
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(17, 16, 1, 0, 42, 32, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+function seasonFloor(rows) {
+  var g = []
+  for (var y = 0; y < rows.length; y++) g.push(rows[y].split(""))
+  var bits = SEASON.confetti(19, 12, 0, 35, 43, 37, -1)
+  for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".t")
+  var out = []
+  for (var r = 0; r < g.length; r++) out.push(g[r].join(""))
+  return out
+}

@@ -39,6 +39,14 @@ polled:
 
 <p align="center"><img src="docs/screenshots/reactions.png" width="560" alt="Reactions to a game launch"></p>
 
+### Seasons
+
+The pets dress up for the calendar, each in its own way: in December the penguin wears a knitted scarf and puts
+a Santa hat on its CRT, the hamster and the cat wear Santa hats, the dachshund gets a Christmas sweater, the
+pigeon's bag becomes Santa's sack, and the axolotl wears reindeer antlers and a red nose. October brings a pumpkin
+on the desk, a pumpkin cap, a witch hat, a skeleton costume, a trick-or-treat bucket and devil horns. New Year's
+Eve, New Year's Day and your birthday mean party hats and confetti, with a confetti burst when you pet them.
+
 ### Game session reports
 
 With `--sessions`, Steam games get MangoHud with the HUD hidden. Its auto-log is turned into a report the
@@ -108,6 +116,7 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
+| `seasons`, `birthday` | layout (all pets) | `true` / none | Seasonal outfits from the date: Christmas Dec 1–26, Halloween in October, party hats + confetti on Dec 31 / Jan 1 and on your `birthday` (`"MM-DD"`). `false` turns them off |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 
 Dragged positions are stored in `~/.config/omarchy/desk-layout/<plugin>.json`. Right-click a card in layout

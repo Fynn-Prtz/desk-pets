@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
 
 // Carrier pigeon pet for the Desk Net card (round 2; px 2 on a 44x38 cell
@@ -31,6 +32,7 @@ import "PetFx.js" as PetFx
 Item {
   id: pet
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | light | busy | offline
   property real rx: 0            // bytes/s
   property real tx: 0
@@ -169,8 +171,11 @@ Item {
     return p
   }
   readonly property var p: pose()
-  readonly property string key: [p.e, p.lx, p.ly, p.b, p.w, p.f, p.pf, p.sq, p.ln, p.bl, p.hx, p.hy, p.bag, p.h].join("|")
-  readonly property string groundKey: "1|" + p.sh
+  readonly property string key: [p.e, p.lx, p.ly, p.b, p.w, p.f, p.pf, p.sq, p.ln, p.bl, p.hx, p.hy, p.bag, p.h, season, seasonConf].join("|")
+  readonly property string groundKey: "1|" + p.sh + "|" + season
+  // Season: confetti raining while petted on party days (not with motion "still").
+  readonly property string seasonConf: season === "party" && reaction === "pet" && motion !== "still" && rt < 2
+    ? String(Math.floor(rt * 8) / 16) : ""
 
   // ---------- bag lights ----------
   // One character per light ("1" "2" down, "3" "4" up): 0 off, 1 lit,
@@ -196,12 +201,16 @@ Item {
   readonly property var bodyPalette: {
     var s = pet.leds
     var off = colors.base.e
-    return colors.extend({
+    var extra = {
       "1": ledColor(s.charAt(0), off), "2": ledColor(s.charAt(1), off),
       "3": ledColor(s.charAt(2), off), "4": ledColor(s.charAt(3), off)
-    })
+    }
+    for (var k in seasonKeys) extra[k] = seasonKeys[k]
+    return colors.extend(extra)
   }
-  readonly property var plainPalette: colors.base
+  // season keys (PetSeason.COLORS) only while a season is on
+  readonly property var seasonKeys: season !== "" ? PetSeason.palette(colors.bg, Qt.rgba) : ({})
+  readonly property var plainPalette: season !== "" ? colors.extend(seasonKeys) : colors.base
 
   // ---------- timers (only while visible and calm) ----------
   readonly property bool calm: active && !sleepy && !busy && !offline && !grooving && reaction === "" && !touch.dragged
@@ -238,7 +247,7 @@ Item {
   PixelSprite {
     px: pet.px
     palette: pet.plainPalette
-    rows: Sprites.ground(pet.groundKey)
+    rows: Sprites.ground(pet.groundKey, PetSeason)
   }
   PixelSprite {
     id: body
@@ -246,7 +255,7 @@ Item {
     x: pet.p.dx * pet.px
     y: pet.p.hop * pet.px
     palette: pet.bodyPalette
-    rows: Sprites.pigeon(pet.key)
+    rows: Sprites.pigeon(pet.key, PetSeason)
   }
   PixelSprite {
     px: pet.px

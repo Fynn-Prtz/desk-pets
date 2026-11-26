@@ -182,7 +182,8 @@ var MAP = [
 // ---------- the pigeon ----------
 var cache = {}
 var cacheSize = 0
-function pigeon(key) {
+function pigeon(key, season0) {
+  if (season0) SEASON = season0
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -208,7 +209,7 @@ function build(k) {
     eyes: k[0] || "open", lx: +k[1] || 0, ly: +k[2] || 0, beak: k[3] || "closed",
     wings: k[4] || "fold", feet: k[5] || "stand", puff: +k[6] || 0, sq: +k[7] || 0,
     lean: +k[8] || 0, blush: +k[9] || 0, hx: +k[10] || 0, hy: +k[11] || 0,
-    bag: +k[12] || 0, hold: k[13] || ""
+    bag: +k[12] || 0, hold: k[13] || "", acc: SEASON ? k[14] || "" : "", conf: k[15] ? +k[15] : -1
   }
   var g = grid()
   var sq = o.sq, pf = o.puff
@@ -335,8 +336,9 @@ function build(k) {
   }
   var bx0 = Math.round(bcx) + 4, by0 = Math.round(bcy) - 1
   // envelopes sticking out of the bag
-  for (var i = 0; i < o.bag; i++) stamp(g, ENV_TOP, bx0 + 1 + i * 3, by0 - 2 + (i % 2), false)
-  stamp(g, BAG, bx0, by0, false)
+  for (var i = 0; i < o.bag; i++) stamp(g, o.acc === "xmas" ? GIFT_TOP : ENV_TOP, bx0 + 1 + i * 3, by0 - 2 + (i % 2), false)
+  stamp(g, o.acc ? seasonBag(o.acc) : BAG, bx0, by0, false)
+  if (o.acc) seasonPigeon(g, o, hcx, hcy, hry, bx0, by0)   // season: hat on the bag / head
   // ---- held things ----
   if (o.hold === "map") stamp(g, MAP, Math.round(bcx) - 7, Math.round(bcy) - 5, false)
   if (o.wings === "hold") layer(g, function(x, y) {
@@ -344,6 +346,7 @@ function build(k) {
   }, function(x, y, inside) { return !IN(inside, x, y - 1) ? "h" : !IN(inside, x, y + 1) ? "d" : "n" })
 
   if (o.lean) shear(g, o.lean, footY)
+  if (o.conf >= 0) seasonConfetti(g, o.conf)   // season: confetti burst
 
   var out = []
   for (var y = 0; y < H; y++) out.push(g[y].join(""))
@@ -381,7 +384,8 @@ function shear(g, dir, pivot) {
 
 // ---------- the wire (behind) ----------
 var gcache = {}
-function ground(key) {
+function ground(key, season0) {
+  if (season0) SEASON = season0
   var hit = gcache[key]
   if (hit) return hit
   var k = String(key).split("|")
@@ -394,6 +398,10 @@ function ground(key) {
     var sag = Math.round(Math.pow((x2 - 21.5) / 21.5, 2) * -1.4) + 1
     put(g, x2, 33 + sag, "d")
     put(g, x2, 34 + sag, "e")
+  }
+  if (k[2] === "party" && SEASON) {   // season: confetti fallen under the wire
+    var bits = SEASON.confetti(23, 10, 1, 36, 42, 37, -1)
+    for (var cb = 0; cb < bits.length; cb++) putIf(g, bits[cb][0], bits[cb][1], bits[cb][2], ".t")
   }
   var rows = []
   for (var y = 0; y < H; y++) rows.push(g[y].join(""))
@@ -458,3 +466,59 @@ var coo = [
   "o.o.o",
   "....."
 ]
+
+// ---------- season (shared/PetSeason.js) ----------
+//
+// The courier's bag is its seasonal spot: at Christmas the satchel turns
+// into Santa's sack (red, white fur trim) wearing a little Santa hat, and the
+// envelopes poking out become gift boxes; in October it is a jack-o'-lantern
+// trick-or-treat bucket; on party days the pigeon wears a party hat, confetti
+// lies under the wire and rains down while it is petted. The rx/tx lights
+// (1 2 3 4) stay on the tag in every outfit. Key fields 14 acc, 15 conf;
+// ground key field 2.
+
+var SEASON = null    // PetSeason, handed in by the QML (pigeon(key, PetSeason))
+
+var SANTA_BAG = [
+  ".oooooooo.",
+  "oWWWWWWWVo",
+  "oR12RR34Mo",
+  "oRRRRRRRMo",
+  ".oMMMMMMo.",
+  "oRRGRGRRMo",
+  "oRRRGRRRMo",
+  ".oooooooo."
+]
+var PUMPKIN_BAG = [
+  ".oooooooo.",
+  "oOOOOOOOUo",
+  "oO12OO34Uo",
+  "oOOOOOOOUo",
+  "oYYOOOYYUo",
+  "oOOYYYYOUo",
+  "oUOOUUOUUo",
+  ".oooooooo."
+]
+var GIFT_TOP = [
+  "oYo",
+  "GYG",
+  "GYG"
+]
+function seasonBag(acc) { return acc === "xmas" ? SANTA_BAG : acc === "spooky" ? PUMPKIN_BAG : BAG }
+
+function seasonPigeon(g, o, hcx, hcy, hry, bx0, by0) {
+  function q(x, y, c) { put(g, x, y, c) }
+  if (o.acc === "xmas") SEASON.stampHat(q, SEASON.hat("santa", 7, 3, 1), bx0 + 3, by0)
+  else if (o.acc === "spooky") {
+    // the bucket's handle arching over the top
+    for (var x = bx0 + 1; x <= bx0 + 8; x++) {
+      var y = by0 - 1 - Math.round(2.2 * Math.sin((x - bx0 - 0.5) / 8 * Math.PI))
+      if (get(g, x, y) !== "l") put(g, x, y, "e")
+    }
+  } else if (o.acc === "party") SEASON.stampHat(q, SEASON.hat("party", 8, 6, 1), Math.round(hcx) - 2, Math.ceil(hcy - hry) + 1)
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(29, 16, 1, 0, 42, 31, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}

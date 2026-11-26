@@ -427,6 +427,7 @@ function buildPenguin(o) {
     if (inEllipse(x, y, cx + 1.2, bcy + 0.8, brx * 0.62, bry * 0.8)) return !IN(inside, x, y + 1) ? "h" : (inEllipse(x, y, cx + 2.0, bcy - 1.0, brx * 0.25, bry * 0.3) ? "l" : "w")
     return shade(x, y, inside)
   })
+  if (o.acc && o.doze) seasonNeck(g, o, cx, bcy, bry)   // season: scarf under the dozing head
   // head: dark cap with a light heart-shaped face mask
   var bodyCx = cx
   if (o.doze) cx += 3
@@ -447,6 +448,7 @@ function buildPenguin(o) {
   putIf(g, Math.floor(cx - 4), ht + 2, "h", "bn"); putIf(g, Math.floor(cx - 3), ht + 1, "h", "bn"); putIf(g, Math.floor(cx - 5), ht + 3, "b", "n")
 
   if (o.face) drawFace(g, Math.floor(fcx), ey, o.face)
+  if (o.acc) seasonPenguin(g, o, bodyCx, bcy, bry, cx, ht)   // season: scarf / party hat
 
   // flippers in front
   layer(g, flipMask(front), shade)
@@ -467,6 +469,7 @@ function buildPenguin(o) {
 function build(o) {
   var g = grid()
   drawDesk(g, o)
+  if (o.acc) seasonDesk(g, o)   // season: CRT hat, pumpkin, floor confetti
   var p = buildPenguin(o)
   var ox = o.px || 0, oy = o.py || 0
   for (var y = 0; y < H; y++)
@@ -474,6 +477,7 @@ function build(o) {
       var c = p[y][x]
       if (c !== ".") put(g, x + ox, y + oy, c)
     }
+  if (o.conf !== undefined) seasonConfetti(g, o)   // season: confetti burst over everything
   var rows = []
   for (var y6 = 0; y6 < H; y6++) rows.push(g[y6].join(""))
   return rows
@@ -486,7 +490,8 @@ function frame(o) {
   var key = [o.scr || "", o.scroll === undefined ? "" : o.scroll, o.cursor ? 1 : 0, o.bar === undefined ? "" : o.bar, o.frame || 0,
     o.tint || "", o.led || "", o.key === undefined ? "" : o.key, o.mug || "", o.crtShake || 0,
     o.lift || 0, o.squash || 0, o.melt || 0, o.doze ? 1 : 0, o.arms || "", o.legs || "", o.lean || 0, o.px || 0, o.py || 0,
-    o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : ""].join("|")
+    o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : "",
+    o.acc || "", o.conf === undefined ? "" : o.conf].join("|")
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -526,8 +531,9 @@ function init(fx) {
   dustR = mirrorRows(fx.dust[1])
 }
 
-function scene(st, fx0) {
+function scene(st, fx0, season0) {
   if (fx0) init(fx0)
+  if (season0) SEASON = season0
   var t = st.t, tick = Math.floor(t * 4), mood = st.mood
   var stressed = mood === "load" || mood === "maxed" || mood === "hot"
   var o = { scr: "code", cursor: true, led: "L", arms: "rest", legs: "stand" }
@@ -746,6 +752,7 @@ function scene(st, fx0) {
   }
   o.face = face
   o.py = py
+  seasonScene(o, st)
   if (fx.length > FX_SLOTS) fx = fx.slice(0, FX_SLOTS)
   var air = Math.max(0, -py)
   return { rows: frame(o), x: dx, y: 0, shadow: shadow[Math.min(2, air)], fx: fx }
@@ -762,3 +769,68 @@ function sweatDrops(fx, t, n) {
 }
 
 function keepSweat(t) { var fx = []; sweatDrops(fx, t, 1); return fx }
+
+// ---------------------------------------------------------------- season
+//
+// Seasonal outfit (shared/PetSeason.js, key from st.season). The penguin is
+// a diligent office worker, so it decorates its workstation: the CRT wears
+// the hat (Santa / witch), the penguin a knitted red-white scarf at
+// Christmas and a party hat on party days; a jack-o'-lantern glows on the
+// desk in October; confetti lies on the floor on party days and bursts when
+// the penguin is petted (not with motion "still"). Drawn into the memoised
+// frame (key fields acc + conf), so it costs nothing per tick.
+
+var SEASON = null    // PetSeason, handed in by the caller like PetFx
+
+function seasonScene(o, st) {
+  if (!SEASON || !st.season) return
+  o.acc = st.season
+  if (st.season === "party" && st.reaction === "pet" && st.motion !== "still" && st.reactT < 2)
+    o.conf = Math.floor(st.reactT * 8) / 16
+}
+
+// Knitted scarf round the neck (body top) with its end trailing behind.
+function seasonNeck(g, o, cx, bcy, bry) {
+  if (o.acc !== "xmas") return
+  var ny = Math.round(bcy - bry) + 1
+  var tx = Math.round(cx) - 6, flap = (o.lean || 0) !== 0 || o.legs === "dangleA" || o.legs === "dangleB" ? 1 : 0
+  layer(g, function(x, y) {
+    if (y === ny - 1) return Math.abs(x + 0.5 - cx) < 6.2
+    if (y === ny) return Math.abs(x + 0.5 - cx) < 6.8
+    return x >= tx + flap && x <= tx + 1 + flap && y > ny && y <= ny + 5 - flap
+  }, function(x, y) {
+    if (y > ny) return y === ny + 5 - flap ? (x % 2 === 0 ? "W" : "V") : (y % 2 === 0 ? "R" : "W")
+    var st = ((x + 40) >> 1) % 2 === 0
+    return y === ny ? (st ? "M" : "V") : (st ? "R" : "W")
+  })
+}
+
+function seasonPenguin(g, o, bodyCx, bcy, bry, cx, ht) {
+  if (o.acc === "xmas" && !o.doze) seasonNeck(g, o, bodyCx, bcy, bry)
+  if (o.acc === "party") SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("party", 7, 5, -1), Math.round(cx) - 3, ht + 3)
+}
+
+function seasonDesk(g, o) {
+  var shake = o.crtShake || 0
+  function p(x, y, c) { put(g, x, y, c) }
+  if (o.acc === "xmas") SEASON.stampHat(p, SEASON.hat("santa", 9, 3, 1), 33 + shake, 7)
+  if (o.acc === "spooky") {
+    SEASON.stampHat(p, SEASON.hat("witch", 8, 5, -1), 34 + shake, 7)
+    // jack-o'-lantern on the desk, right of the keyboard, glowing face
+    layer(g, function(x, y) { return inEllipse(x, y, 40.5, 21.6, 3.0, 2.4) || (x === 40 && y === 18) }, function(x, y, inside) {
+      if (x === 40 && y <= 19) return "G"
+      if ((y === 20 && (x === 39 || x === 41)) || (y === 22 && x >= 39 && x <= 41)) return "Y"
+      if (!IN(inside, x, y + 1) || x === 42) return "U"
+      return x === 40 ? "U" : "O"
+    })
+  }
+  if (o.acc === "party") {
+    var bits = SEASON.confetti(3, 9, 0, 34, 43, 35, -1)
+    for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".")
+  }
+}
+
+function seasonConfetti(g, o) {
+  var bits = SEASON.confetti(7, 16, 1, 0, 42, 32, o.conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}

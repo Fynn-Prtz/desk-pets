@@ -378,10 +378,11 @@ function build(o) {
     }
     // Held items: at the mouth with raised paws, else in the paws on the tummy.
     var iy = p1 === "hold" ? fwdY(21) : fwdY(25)
-    if (o.item === "seed") stamp(g, seed, 21, iy, false)
+    if (o.item === "seed") stamp(g, o.acc ? seasonTreat(o.acc) : seed, 21, iy, false)
     else if (o.item === "chip") stamp(g, chip, 18, iy + (p1 === "hold" ? 1 : 0), false)
   }
 
+  if (o.acc) seasonHamster(g, o, headTop, hcy, hry, ball)   // season: hat under the hoard, floor confetti
   // Hoard balanced on the head.
   if (o.pile > 0 && !ball) {
     var top = fwdY(headTop)
@@ -411,6 +412,7 @@ function build(o) {
     }
   }
 
+  if (o.conf >= 0) seasonConfetti(g, o.conf)   // season: confetti burst over everything
   var rows = []
   for (var r = 0; r < H; r++) rows.push(g[r].join(""))
   return rows
@@ -426,10 +428,11 @@ var cacheSize = 0
 function key(o) {
   return [o.pose || "sit", o.eyes || "open", o.look ? o.look[0] : 0, o.look ? o.look[1] : 0,
     o.mouth || "omega", o.cheek || 0, o.paws || "down", o.item || "", o.pile || 0,
-    o.flush ? 1 : 0, o.lean || 0, o.nose ? 1 : 0, o.breath ? 1 : 0].join("|")
+    o.flush ? 1 : 0, o.lean || 0, o.nose ? 1 : 0, o.breath ? 1 : 0, o.acc || "", o.conf >= 0 ? o.conf : ""].join("|")
 }
 
-function frame(k) {
+function frame(k, season0) {
+  if (season0) SEASON = season0
   var hit = cache[k]
   if (hit) return hit
   // A session only ever sees a bounded set of poses; reset if it ever grows.
@@ -439,11 +442,59 @@ function frame(k) {
     pose: f[0] || "sit", eyes: f[1] || "open", look: [parseInt(f[2], 10) || 0, parseInt(f[3], 10) || 0],
     mouth: f[4] || "omega", cheek: Math.max(0, Math.min(5, parseInt(f[5], 10) || 0)),
     paws: f[6] || "down", item: f[7] || "", pile: Math.max(0, Math.min(3, parseInt(f[8], 10) || 0)),
-    flush: f[9] === "1", lean: parseInt(f[10], 10) || 0, nose: f[11] === "1" ? 1 : 0, breath: f[12] === "1" ? 1 : 0
+    flush: f[9] === "1", lean: parseInt(f[10], 10) || 0, nose: f[11] === "1" ? 1 : 0, breath: f[12] === "1" ? 1 : 0,
+    acc: SEASON ? f[13] || "" : "", conf: f[14] ? parseFloat(f[14]) : -1
   })
   cache[k] = rows
   cacheSize++
   return rows
 }
 
-function hamster(o) { return frame(key(o)) }
+function hamster(o, season0) { return frame(key(o), season0) }
+
+// ---------- season (shared/PetSeason.js) ----------
+//
+// The hoarder dresses up and hoards the season's treats: a floppy Santa hat
+// at Christmas, a hollowed pumpkin cap in October, a party hat on party days,
+// always between the ears and under the RAM tower; the nibble seed becomes a
+// candy cane / candy corn / cupcake. Confetti lies on the floor on party days
+// and rains down while it is petted. Key fields acc + conf (memoised).
+
+var SEASON = null    // PetSeason, handed in by the QML (frame(key, PetSeason))
+
+var TREATS = {
+  xmas:   ["WRW", "R.W", "W..", "R..", "W.."],             // candy cane
+  spooky: [".W.", "YYY", "OOO", "OOO"],                    // candy corn
+  party:  [".R.", "WWW", "FIF", "FIF"]                     // cupcake with a cherry
+}
+function seasonTreat(acc) { return TREATS[acc] || seed }
+
+function seasonHamster(g, o, headTop, hcy, hry, ball) {
+  var top = ball ? fwdY(hcy - hry) + 1 : fwdY(headTop)
+  function p(x, y, c) { put(g, x, y, c) }
+  if (o.acc === "xmas") SEASON.stampHat(p, SEASON.hat("santa", 13, 5, 1), CX - 1, top + 3)
+  else if (o.acc === "party") SEASON.stampHat(p, SEASON.hat("party", 8, 6, -1), CX + 2, top + 2)
+  else if (o.acc === "spooky") {
+    // a little hollowed pumpkin worn as a cap: ribbed dome, stem and leaf
+    var cy = top + 1.5
+    layer(g, function(x, y) {
+      return (inE(x, y, CX, cy, 7.4, 4.2) && sy(y) < cy + 1.6) || (x === CX && fwdY(cy - 4.2) - 1 === y)
+    }, function(x, y, inside) {
+      if (sy(y) < cy - 4.0) return "J"
+      if (!isIn(inside, x, y + 1)) return "U"
+      if (!isIn(inside, x, y - 1)) return "Y"
+      var rib = Math.abs(x + 0.5 - CX)
+      return (Math.round(rib) === 3 || Math.round(rib) === 6) ? "U" : "O"
+    }, FLOOR)
+    put(g, CX + 1, fwdY(cy - 4.2) - 1, "G"); put(g, CX + 2, fwdY(cy - 4.2), "G")
+  }
+  if (o.acc === "party") {
+    var bits = SEASON.confetti(5, 10, 2, 36, 41, 37, -1)
+    for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".t")
+  }
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(11, 16, 1, 0, 42, 33, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
