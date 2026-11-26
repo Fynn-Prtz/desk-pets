@@ -165,10 +165,29 @@ Item {
 
   PetTouch {
     id: petTouch
+    gazing: chat.looking
+    gazeX: chat.lookX
+    gazeY: chat.lookY
     anchors.fill: parent
     active: cat.active
     reactions: cat.reactions
     place: cat.place
 
+  }
+
+  // ---------- pet chat (shared PetChat.qml) ----------
+  // Calm and awake: may send a music note to a neighbour card now and then;
+  // asleep: may receive one (wakes up to look). Only with motion "full".
+  readonly property string chatStatus: !cat.extras || !cat.active || cat.dancing || cat.neighbour !== "" ? ""
+    : cat.mode === "idle" ? "calm" : (cat.mode === "sleep" || cat.mode === "drowsy") ? "sleep" : ""
+  PetChat {
+    id: chat
+    name: "cat"
+    item: "note"
+    status: cat.chatStatus
+    place: cat.place
+    clock: cat.clock
+    px: cat.px
+    from: Qt.point(19, 0)
   }
 }

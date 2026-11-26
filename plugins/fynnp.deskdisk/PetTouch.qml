@@ -34,13 +34,21 @@ Item {
   property var place: null          // the card's DeskPlace, for drag reactions
   property Item window: null        // win.contentItem, for maskRect
   property bool reactions: true     // petReactions setting: false = no touch at all, empty maskRect
+  // Gaze (pet-chat): look toward a neighbour card as if hovered there; the
+  // pet's own hover pose (awake, eyes follow) does the "looking back".
+  property bool gazing: false
+  property int gazeX: 0             // -1/0/1
+  property int gazeY: 0
 
   // ---------- outputs ----------
   property string reaction: ""      // "" | "pet" | "annoyed" | "squish"
   property int serial: 0            // bumps on every new reaction (restart one-shot anims)
-  readonly property bool hovered: active && reactions && mouse.containsMouse
-  property int lookX: 0             // -1 left, 0 centre, 1 right (only while hovered)
-  property int lookY: 0             // -1 up, 0 centre, 1 down
+  readonly property bool hovered: active && ((reactions && mouse.containsMouse) || gazing)
+  readonly property bool pointerIn: active && reactions && mouse.containsMouse
+  readonly property int lookX: pointerIn ? pointX : gazing ? gazeX : 0   // -1 left, 0 centre, 1 right
+  readonly property int lookY: pointerIn ? pointY : gazing ? gazeY : 0   // -1 up, 0 centre, 1 down
+  property int pointX: 0
+  property int pointY: 0
   readonly property bool dragged: reactions && !!place && place.dragging
   readonly property bool editing: !!place && place.editing
   property int lean: 0              // -1/0/1 while dragged: tilt against the motion
@@ -71,10 +79,11 @@ Item {
     onPositionChanged: function(m) {
       var nx = (m.x - width / 2) / Math.max(1, width / 2)
       var ny = (m.y - height / 2) / Math.max(1, height / 2)
-      touch.lookX = nx < -0.33 ? -1 : nx > 0.33 ? 1 : 0
-      touch.lookY = ny < -0.4 ? -1 : ny > 0.4 ? 1 : 0
+      touch.pointX = nx < -0.33 ? -1 : nx > 0.33 ? 1 : 0
+      touch.pointY = ny < -0.4 ? -1 : ny > 0.4 ? 1 : 0
     }
-    onExited: { touch.lookX = 0; touch.lookY = 0 }
+    onExited: { touch.pointX = 0; touch.pointY = 0 }
+
     onPressAndHold: touch.react("squish", 0)
     onReleased: {
       if (touch.reaction === "squish") touch.react("pet", 1400)

@@ -375,11 +375,30 @@ Item {
   // Input over the body (mask + hover/click/hold).
   PetTouch {
     id: touch
+    gazing: chat.looking
+    gazeX: chat.lookX
+    gazeY: chat.lookY
     anchors.fill: parent
     active: pet.active
     reactions: pet.reactions
     place: pet.place
     window: pet.window
 
+  }
+
+  // ---------- pet chat (shared PetChat.qml) ----------
+  // Calm and awake: may send a sunflower seed from the hoard to a neighbour card now and then;
+  // asleep: may receive one (wakes up to look). Only with motion "full".
+  readonly property string chatStatus: !pet.extras || !pet.active || pet.grooving ? ""
+    : pet.mood === "calm" ? "calm" : pet.mood === "sleep" ? "sleep" : ""
+  PetChat {
+    id: chat
+    name: "hamster"
+    item: "seed"
+    status: pet.chatStatus
+    place: pet.place
+    clock: pet.clock
+    px: pet.px
+    from: Qt.point(22, 0)
   }
 }

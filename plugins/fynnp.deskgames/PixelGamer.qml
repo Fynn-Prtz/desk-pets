@@ -100,6 +100,9 @@ Item {
 
   PetTouch {
     id: touch
+    gazing: chat.looking
+    gazeX: chat.lookX
+    gazeY: chat.lookY
     anchors.fill: parent
     active: gamer.active
     reactions: gamer.reactions
@@ -164,5 +167,21 @@ Item {
       palette: fx ? gamer.fxPalettes[fx.c] : gamer.fxPalettes.o
       rows: fx ? fx.rows : gamer.none
     }
+  }
+
+  // ---------- pet chat (shared PetChat.qml) ----------
+  // Calm and awake: may send a bubble (axolotls blow bubbles) to a neighbour card now and then;
+  // asleep: may receive one (wakes up to look). Only with motion "full".
+  readonly property string chatStatus: !gamer.extras || !gamer.active || gamer.bop ? ""
+    : gamer.mood === "ready" ? "calm" : gamer.mood === "idle" ? "sleep" : ""
+  PetChat {
+    id: chat
+    name: "gamer"
+    item: "bubble"
+    status: gamer.chatStatus
+    place: gamer.place
+    clock: gamer.clock
+    px: gamer.px
+    from: Qt.point(21, 0)
   }
 }

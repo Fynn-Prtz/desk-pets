@@ -101,6 +101,19 @@ remove work:
   (`visible: false`, `active: false`, width 0) and the card's clock stays off; maskRect is empty then too.
 - Check: `tools/pet-settings-check/run.sh` (loads every real pet offscreen, counts running timers per mode).
 
+## Pet chat (`shared/PetChat.qml`)
+
+Neighbour moments between cards. Each pet declares `chatStatus` ("calm" = awake and relaxed: sends and
+receives; "sleep": receives only and wakes to look; "" otherwise, always "" unless `extras` and `active`) and a
+`PetChat { name; item; status; place; clock; px; from }` (from = the cell above its head where gifts leave and
+land), and feeds `chat.looking/lookX/lookY` into PetTouch's `gazing/gazeX/gazeY`: looking back is the pet's
+own hover pose. Bus in `$XDG_RUNTIME_DIR/fynnp-desk`: `chat-<name>` (availability + global card rect, written
+on change) and `msg-<name>` (inbox), inotify-watched. One single-shot timer (4–9 min) runs only while the pet
+is calm, visible and a same-monitor neighbour is available; the clock runs only during the ~3 s moment.
+Gifts: penguin plane, hamster seed, cat note, dachshund bone, pigeon envelope, axolotl bubble. Check:
+`tools/pet-chat-check/run.sh SENDER RECEIVER[:sleep] OUT [vertical]`.
+
+
 ## Card integration (each card)
 
 1. Copy `shared/{PixelSprite,PetColors,PetTouch,DeskPlace}.qml` and `shared/PetFx.js` into the plugin.
