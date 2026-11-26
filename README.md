@@ -19,6 +19,7 @@ from tiny Rust helpers that sleep until they're asked or something changes.
 | 🎧 | **Desk Audio** (`fynnp.deskaudio`) | Now playing (MPRIS) with art and controls, a block-cell visualizer, output/input device pickers with volume, a per-app mixer. A cat that dances to your music. |
 | 🎮 | **Desk Games** (`fynnp.deskgames`) | Recently played Steam games with covers, one click to launch, live "Playing · 0:42", and the **last session report** (avg FPS, 1 % low, peak temps, kWh). A gamepad critter that mashes buttons and holds up a trophy. |
 | 📡 | **Desk Net** (`fynnp.desknet`) | Default-route interface and IPv4, live ↓/↑ rates, a 40 s mirrored throughput history, totals since the card started. A pixel router that dozes when the line is quiet, flickers its LEDs and passes packets when busy, and flops its antennas when you're offline. |
+| 🐸 | **Desk Weather** (`fynnp.deskweather`) | Current weather from [Open-Meteo](https://open-meteo.com) (no API key), a 40 h temperature lattice with "rain from 15:00", and three days ahead with range bars. A pixel frog that dresses for it: umbrella and puddle jumping in the rain (inside out in a storm), sunglasses in the sun, a scarf in the cold, catching snowflakes on its tongue. **Opt-in:** it makes no network calls until you set `latitude` / `longitude`. |
 | 🌙 | **Cat screensaver** (`fynnp.catsaver`) | A sleeping pixel cat with a swishing tail, breathing, drifting z's, a moon and twinkling stars, on every monitor. |
 | ✋ | **Layout mode** (`fynnp.desklayout`) | **SUPER + ALT + E**: drag the cards anywhere on a snapping grid, nudge them with the arrow keys, send them to another monitor. |
 
@@ -69,7 +70,7 @@ stay-awake is on, or while the screen is locked. Any key, click or mouse move di
 ## Requirements
 
 - Omarchy with the Quickshell-based `omarchy-shell` (Hyprland 0.56+ Lua config)
-- `rust` / `cargo` (`omarchy pkg add rust` or `mise use -g rust`), `jq`
+- `rust` / `cargo` (`omarchy pkg add rust` or `mise use -g rust`), `jq`, `curl` (weather card)
 - Optional: Steam; `mangohud` + `lib32-mangohud` for session reports; an NVIDIA GPU (NVML) or an AMD GPU
   for GPU stats
 
@@ -107,6 +108,10 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `interval` | system, memory, disk, net | 1000 / 3000 / 1000 / 1000 | Poll interval in ms (only while visible) |
 | `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
+| `latitude`, `longitude` | weather | unset | Your location in decimal degrees, e.g. `52.52`, `13.405`. Until both are set the card shows a setup hint and never touches the network. Sent to Open-Meteo rounded to 3 decimals (~100 m) |
+| `place`, `units` | weather | `""` / `"metric"` | Name shown on the card; `"imperial"` for °F and mph |
+| `refresh` | weather | 30 | Minutes between fetches (minimum 30); fetches happen only while the card is visible, cached in `~/.cache/fynnp-desk/` |
+| `petMotion` | weather | `"full"` | `"calm"`: no idle fidgets or neighbour extras; `"still"`: one frame per weather, no animation clock |
 | `grid` | layout | 24 | Snapping grid in px |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 

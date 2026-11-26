@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.deskweather",
+  "name": "Desk Weather",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop weather card (Open-Meteo, no API key): now, next 40 hours and three days, with a pixel frog that dresses for the weather",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}

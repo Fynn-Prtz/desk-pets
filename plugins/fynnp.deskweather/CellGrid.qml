@@ -4,12 +4,14 @@ import qs.Commons as Commons
 
 // Block-cell grid on the same 40-column lattice as the audio card's
 // visualizer, in one Canvas. `values` (0..1, or -1 for no data) lights each
-// column bottom-up; with `cells: 1` and `fraction` it is a horizontal meter.
+// column bottom-up; with `cells: 1` and `fraction` it is a horizontal meter
+// (deskweather: `rangeFrom` > 0 lights only rangeFrom..fraction, a range bar).
 // Repaints only when the lit pattern actually changes.
 Canvas {
   id: grid
   property var values: []
   property real fraction: -1
+  property real rangeFrom: 0
   property int columns: 40
   property int cells: 5
   property int gap: 2
@@ -32,7 +34,8 @@ Canvas {
     var next = []
     if (fraction >= 0) {
       var n = Math.round(Math.max(0, Math.min(1, fraction)) * columns)
-      for (var i = 0; i < columns; i++) next.push(i < n ? 1 : 0)
+      var n0 = Math.min(n - 1, Math.round(Math.max(0, Math.min(1, rangeFrom)) * columns))
+      for (var i = 0; i < columns; i++) next.push(i < n && i >= n0 ? 1 : 0)
       if (n > 1) next[n - 1] = 2 // bright head cell, like the visualizer's cap
     } else {
       var pad = columns - values.length
@@ -50,6 +53,7 @@ Canvas {
 
   onValuesChanged: recompute()
   onFractionChanged: recompute()
+  onRangeFromChanged: recompute()
   onOnColorChanged: requestPaint()
   onWidthChanged: requestPaint()
   onHeightChanged: requestPaint()

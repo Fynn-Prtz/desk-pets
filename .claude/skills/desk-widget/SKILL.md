@@ -2,7 +2,7 @@
 name: desk-widget
 description: >
   Use when the user wants a new desktop widget/card, screensaver, or pixel-art buddy for their Omarchy
-  desktop, or wants to change the existing desk cards (fynnp.desksys, fynnp.deskmem, fynnp.deskdisk, fynnp.desknet, fynnp.deskaudio, fynnp.deskgames,
+  desktop, or wants to change the existing desk cards (fynnp.desksys, fynnp.deskmem, fynnp.deskdisk, fynnp.desknet, fynnp.deskaudio, fynnp.deskgames, fynnp.deskweather,
   fynnp.catsaver, fynnp.desklayout). Triggers: "widget", "desk card", "desktop card", "pixel buddy",
   "screensaver", "another card like the audio one", "on my desktop", "move/place widgets".
   Holds the architecture, reusable components, style rules, performance rules, gotchas and the QA
@@ -28,6 +28,7 @@ must be indistinguishable from the others. The user's priorities: **looks matchi
 | `fynnp.deskaudio` | now playing, visualizer, in/out devices, app mixer | PixelCat (dances) | interactive; the original style reference |
 | `fynnp.desksys` | CPU/GPU/RAM/VRAM load, temps, watts, history | PixelBuddy (computer) | **best template** for a read-only card; Rust feed `~/.local/bin/desksys-feed` (src `helpers/desksys-feed`) |
 | `fynnp.deskgames` | Steam recently played, launch, last session report | PixelGamer (gamepad) | Rust inotify feed in `helper/`, `bin/deskgames-feed` |
+| `fynnp.deskweather` | Open-Meteo now / 40 h lattice / 3 days, opt-in location | PixelFrog (umbrella, shades, scarf) | one-shot `curl` Process ≤ every 30 min while visible, cache in `~/.cache/fynnp-desk`; `Weather.js` pure + node-testable |
 | `fynnp.catsaver` | sleeping pixel-cat screensaver, IdleMonitor, all monitors | big cat | replaces Omarchy's TTE saver (`idle.screensaver: 0`); IPC `omarchy-shell catsaver show/hide/status` |
 | `fynnp.desklayout` | edit mode backdrop + IPC, SUPER+ALT+E | — | IPC `omarchy-shell desklayout toggle`; positions in `~/.config/omarchy/desk-layout/<id>.json` |
 
@@ -83,6 +84,9 @@ agent reports (design decisions) live outside the repo in `~/src/desk-widgets/` 
 - No `Process` per tick, no polling where inotify/Hyprland events/systemd path units exist.
 - Helpers in Rust (user preference when it matters), std-only where possible; measure RSS/CPU after.
 - Untrusted text (Steam names, files, MPRIS) → PlainText sinks, bounded `.slice()`, control chars stripped.
+
+Offscreen check of a whole card (Service.qml + window) on a box without Quickshell:
+`tools/card-check/run.sh plugins/<card> out.png '<shell.json>' prop1,prop2` (stubs in `tools/card-check/stub`).
 
 ## Gotchas (each cost real time once)
 
