@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
 
 // Dachshund pet for the Desk Disk card (round 2; px 2 on a 44x38 cell
@@ -35,6 +36,7 @@ Item {
   // frames only, no blinks; the card stops its clock.
   readonly property bool extras: motion === "full"
   readonly property bool still: motion === "still"
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | light | busy | full
   property real util: 0          // % busy, busiest disk
   property real readRate: 0      // bytes/s
@@ -70,7 +72,7 @@ Item {
   property bool blinking: false
 
   // True while the pet wants frames although its mood would let it rest.
-  readonly property bool moving: grooving || touch.busy || fidget !== ""
+  readonly property bool moving: grooving || touch.busy || fidget !== "" || morningPlay.running
   // The card's clock runs while this is true (125 ms while touch.busy).
   readonly property bool needsClock: mood !== "light" || moving
 
@@ -182,6 +184,21 @@ Item {
     if (sleepy) {
       p.p = "curl"; p.e = "sleep"; p.m = "none"; p.t = "curl"; p.bl = 0; p.mo = 4; p.sh = 0
       p.sq = Math.floor(wall) % 3 === 0 ? 0 : 1
+      if (night) p.cap = "1"   // day-night: nightcap
+      return p
+    }
+    if (morningPlay.running && mood === "light") {
+      // day-night: first wake of the morning: play-bow stretch + yawn, then
+      // trots about with a steaming mug by the handle
+      var mt = clock - morningT0
+      if (mt < 1.8) {
+        var bow = mt > 0.3 && mt < 1.6
+        p.p = bow ? "dig" : "stand"; p.e = bow ? "sleep" : "blink"; p.m = bow ? "o" : "smile"; p.ea = bow ? "perk" : "flop"
+        p.t = bow ? (tick % 2 ? "wag1" : "wag2") : "up"
+      } else if (mt < 4.2) {
+        p.c = "mug" + (tick % 2); p.e = mt > 2.4 ? "happy" : "open"; p.t = tick % 2 ? "wag1" : "wag2"; p.ea = "perk"
+        p.g = mt > 2.6 && mt < 3.6 ? (tick % 2 ? "walk1" : "walk2") : "stand"
+      } else { p.e = "happy"; p.m = "open"; p.t = tick % 2 ? "wag1" : "wag2" }
       return p
     }
     // calm (light, or idle while hovered)
@@ -195,8 +212,33 @@ Item {
     return p
   }
   readonly property var p: pose()
-  readonly property string key: [p.e, p.lx, p.ly, p.m, p.p, p.g, p.ea, p.t, p.c, p.sq, p.ln, p.bl, p.hx, p.hy].join("|")
-  readonly property string groundKey: [p.sh, p.ho, p.mo, p.pi].join("|")
+  readonly property string key: [p.e, p.lx, p.ly, p.m, p.p, p.g, p.ea, p.t, p.c, p.sq, p.ln, p.bl, p.hx, p.hy, season, seasonConf, p.cap || ""].join("|")
+  readonly property string groundKey: [p.sh, p.ho, p.mo, p.pi, season].join("|")
+  // Season: confetti raining while petted on party days (not with motion "still").
+  readonly property string seasonConf: season === "party" && reaction === "pet" && motion !== "still" && rt < 2
+    ? String(Math.floor(rt * 8) / 16) : ""
+
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while curled up + more yawns; morning: the first wake of
+  // the day (idle -> light) is a stretch + coffee. Single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property real morningT0: 0
+  readonly property bool dozing: mood === "idle"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (pet.active && pet.morningDay !== new Date().toDateString() && pet.mood === "light" && pet.reaction === "" && !touch.dragged) pet.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    pet.morningDay = new Date().toDateString()
+    pet.morningT0 = pet.clock
+    pet.fidget = ""
+    morningPlay.restart()
+  }
 
   // ---------- timers (only while visible and calm) ----------
   readonly property bool calm: active && !sleepy && !busy && !full && !grooving && reaction === "" && !touch.dragged
@@ -216,6 +258,7 @@ Item {
       var kinds = ["look", "sniff", "wag", "scratch", "yawn"]
       pet.fidgetAt = pet.clock
       pet.fidget = kinds[Math.floor(Math.random() * kinds.length)]
+      if (pet.night && Math.random() < 0.5) pet.fidget = "yawn"   // day-night: extra sleepy
       fidgetEnd.restart()
       interval = 8000 + Math.floor(Math.random() * 7000)
     }
@@ -225,7 +268,7 @@ Item {
   onCalmChanged: if (!calm) { fidget = ""; fidgetEnd.stop() }
 
   // ---------- palettes ----------
-  readonly property var bodyPalette: colors.base
+  readonly property var bodyPalette: season !== "" ? colors.extend(PetSeason.palette(colors.bg, Qt.rgba)) : colors.base
   readonly property var inkFx: colors.fx(colors.fg)
   readonly property var heartFx: colors.fx(colors.urgent)
   readonly property var sweatFx: colors.fx(colors.base.w)
@@ -235,7 +278,7 @@ Item {
   PixelSprite {
     px: pet.px
     palette: pet.bodyPalette
-    rows: Sprites.ground(pet.groundKey)
+    rows: Sprites.ground(pet.groundKey, PetSeason)
   }
   PixelSprite {
     id: body
@@ -243,7 +286,7 @@ Item {
     x: pet.p.dx * pet.px
     y: pet.p.hop * pet.px
     palette: pet.bodyPalette
-    rows: Sprites.dog(pet.key)
+    rows: Sprites.dog(pet.key, PetSeason)
   }
   PixelSprite {
     px: pet.px

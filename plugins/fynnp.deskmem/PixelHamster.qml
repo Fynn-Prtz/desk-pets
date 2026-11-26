@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as Fx
 
 // Pixel hamster that hoards RAM in its cheek pouches (docs/PETS.md).
@@ -27,6 +28,7 @@ Item {
   // frames only, no blinks; the card stops its clock.
   readonly property bool extras: motion === "full"
   readonly property bool still: motion === "still"
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
 
   property string mood: "sleep"   // sleep | calm | busy | strain | critical
   property real fill: 0           // used memory 0..1 (pouch size)
@@ -58,7 +60,7 @@ Item {
   property real landT0: 0
 
   // Needs frames although the mood alone would rest (calm is still).
-  readonly property bool moving: touch.busy || grooving || fidget !== ""
+  readonly property bool moving: touch.busy || grooving || fidget !== "" || morningPlay.running
 
   readonly property int step: Math.floor(clock * 4 + 0.001)   // 4 per second
   readonly property int fstep: Math.floor(clock * 8 + 0.001)  // 8 per second (reactions)
@@ -138,6 +140,23 @@ Item {
       if (o.eyes === "open" || o.eyes === "wide" || o.eyes === "worried") o.look = [touch.lookX, touch.lookY]
       if (o.pose !== "ball" && !struggling) o.nose = f % 4 < 2 ? 1 : 0
     }
+    // Day/night: nightcap when curled up after 23:00, morning stretch + coffee.
+    if (o.pose === "ball" && night) o.cap = 1
+    if (morningPlay.running && mood === "calm" && touch.reaction === "" && !touch.dragged && !touch.landing) {
+      t = clock - morningT0
+      o.look = [0, 0]; o.item = ""; o.nose = 0
+      if (t < 1.8) {
+        var up = t > 0.3 && t < 1.6
+        o.pose = up ? "dangle" : "sit"; o.paws = up ? "wash" : "down"; o.eyes = up ? "sleep" : "blink"; o.mouth = up ? "open" : "omega"
+      } else if (t < 4.2) {
+        var sip = t > 2.6 && t < 3.4
+        o.paws = sip ? "hold" : "down"; o.item = "mug" + (f % 4 < 2 ? 0 : 1); o.eyes = sip || t > 3.4 ? "happy" : "open"; o.mouth = sip ? "chew" : "omega"
+      } else { o.eyes = "happy"; o.mouth = "smile" }
+    }
+    // Season: outfit + confetti while petted on party days (not with motion "still").
+    o.acc = season
+    if (season === "party" && touch.reaction === "pet" && motion !== "still" && clock - reactT0 < 2)
+      o.conf = Math.floor((clock - reactT0) * 8) / 16
     return Sprites.key(o)
   }
 
@@ -171,6 +190,7 @@ Item {
       var picks = ["look", "sniff", "wash", "nibble", "yawn", "wash", "nibble"]
       var durs = { look: 2500, sniff: 2000, wash: 2500, nibble: 3500, yawn: 1750 }
       var pick = picks[Math.floor(Math.random() * picks.length)]
+      if (pet.night && Math.random() < 0.5) pick = "yawn"   // day-night: extra sleepy
       pet.fidgetT0 = pet.clock
       pet.fidget = pick
       fidgetEnd.interval = durs[pick]
@@ -183,8 +203,30 @@ Item {
   onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop(); blinking = false }
   onExtrasChanged: if (!extras) { fidget = ""; fidgetEnd.stop() }
 
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while curled up + more yawns; morning: the first wake of
+  // the day (sleep -> calm) is a stretch + a cup of coffee. Single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property real morningT0: 0
+  readonly property bool dozing: mood === "sleep"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (pet.active && pet.morningDay !== new Date().toDateString() && pet.mood === "calm" && touch.reaction === "" && !touch.dragged) pet.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    pet.morningDay = new Date().toDateString()
+    pet.morningT0 = pet.clock
+    pet.fidget = ""
+    morningPlay.restart()
+  }
+
   // ---------- palettes ----------
-  readonly property var pal: colors.base
+  readonly property var pal: season !== "" ? colors.extend(PetSeason.palette(colors.bg, Qt.rgba)) : colors.base
   readonly property var fxFg: colors.fx(colors.fg)
   readonly property var fxHeart: colors.fx(colors.urgent)
   readonly property var fxSweat: colors.fx(colors.base.h)
@@ -196,7 +238,7 @@ Item {
     x: pet.offX * pet.px
     y: pet.offY * pet.px
     palette: pet.pal
-    rows: Sprites.frame(pet.frameKey)
+    rows: Sprites.frame(pet.frameKey, PetSeason)
   }
 
   // ---------- effects (whole-cell positions; cells -> px) ----------

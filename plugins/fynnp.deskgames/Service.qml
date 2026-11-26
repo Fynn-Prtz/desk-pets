@@ -32,6 +32,10 @@ Item {
 
   Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
 
+  // ---------- seasonal outfit (season-hats): date -> PetSeason key ----------
+  // "seasons" / "birthday" live on the fynnp.desklayout entry (PetCalendar.qml).
+  PetCalendar { id: seasonCal; active: root.active }
+
   // ---------- settings ----------
   property string monitorName: ""
   property string corner: "center-right"
@@ -488,6 +492,9 @@ Item {
 
           PixelGamer {
             id: gamer
+            season: seasonCal.season
+            night: seasonCal.night
+            morning: seasonCal.morning
             px: 2
             visible: root.showPet
             width: root.showPet ? 44 * px : 0

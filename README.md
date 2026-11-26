@@ -44,6 +44,17 @@ polled:
 
 <p align="center"><img src="docs/screenshots/reactions.png" width="560" alt="Reactions to a game launch"></p>
 
+### Seasons
+
+The pets dress up for the calendar, each in its own way: in December the penguin wears a knitted scarf and puts
+a Santa hat on its CRT, the hamster and the cat wear Santa hats, the dachshund gets a Christmas sweater, the
+pigeon's bag becomes Santa's sack, and the axolotl wears reindeer antlers and a red nose. October brings a pumpkin
+on the desk, a pumpkin cap, a witch hat, a skeleton costume, a trick-or-treat bucket and devil horns. New Year's
+Eve, New Year's Day and your birthday mean party hats and confetti, with a confetti burst when you pet them.
+
+They keep a daily routine too: after 23:00 they yawn more and sleep in striped nightcaps, and the first wake
+of the morning (06:00–10:00) is a big stretch and a tiny mug of coffee.
+
 ### Game session reports
 
 With `--sessions`, Steam games get MangoHud with the HUD hidden. Its auto-log is turned into a report the
@@ -121,6 +132,8 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `nightFrom`, `nightTo` | clock | 23 / 7 | Hours the owl sleeps (it gets drowsy the hour before) |
 | `petMotion` | clock | `"full"` | `"calm"`: no idle fidgets, a single hoot · `"still"`: mood frames only, no animation and no clock ticks |
 | `grid` | layout | 24 | Snapping grid in px |
+| `seasons`, `birthday` | layout (all pets) | `true` / none | Seasonal outfits from the date: Christmas Dec 1–26, Halloween in October, party hats + confetti on Dec 31 / Jan 1 and on your `birthday` (`"MM-DD"`). `false` turns them off |
+| `dayNight` | layout (all pets) | `true` | After 23:00 the pets yawn more and wear a nightcap when asleep; their first wake between 06:00 and 10:00 is a stretch and a tiny coffee. `false` turns it off |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 
 Turning a pet setting down only ever removes work: `calm` stops the fidget timers, `still` and `pet: false`

@@ -1,5 +1,6 @@
 import QtQuick
 import "Sprites.js" as Sprites
+import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
 
 // Carrier pigeon pet for the Desk Net card (round 2; px 2 on a 44x38 cell
@@ -36,6 +37,7 @@ Item {
   // frames only, no blinks; the card stops its clock.
   readonly property bool extras: motion === "full"
   readonly property bool still: motion === "still"
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | light | busy | offline
   property real rx: 0            // bytes/s
   property real tx: 0
@@ -69,7 +71,7 @@ Item {
   property bool blinking: false
 
   // True while the pet wants frames although its mood would let it rest.
-  readonly property bool moving: grooving || touch.busy || fidget !== ""
+  readonly property bool moving: grooving || touch.busy || fidget !== "" || morningPlay.running
   // The card's clock runs while this is true (125 ms while touch.busy).
   readonly property bool needsClock: mood !== "light" || moving
 
@@ -161,6 +163,20 @@ Item {
     if (sleepy) {
       p.e = "sleep"; p.b = "tuck"; p.pf = 1; p.f = "tuck"; p.bl = 0; p.bag = 0
       p.sq = Math.floor(wall) % 3 === 0 ? 0 : 1
+      if (night) p.cap = "1"   // day-night: nightcap
+      return p
+    }
+    if (morningPlay.running && mood === "light") {
+      // day-night: first wake of the morning: a big wing stretch + yawn,
+      // then a steaming mug held to the chest, happy little sips
+      var mt = clock - morningT0
+      if (mt < 1.8) {
+        var up = mt > 0.3 && mt < 1.6
+        p.w = up ? (tick % 4 < 2 ? "up" : "mid") : "fold"; p.e = up ? "sleep" : "blink"; p.b = up ? "open" : "closed"; p.f = up ? "tap" : "stand"
+      } else if (mt < 4.2) {
+        p.w = "hold"; p.h = "mug" + (tick % 2); p.e = mt > 2.4 ? "happy" : "open"
+        p.b = mt > 2.6 && mt < 3.4 ? "coo" : "closed"; p.hy = mt > 2.6 && mt < 3.4 ? 1 : 0
+      } else { p.e = "happy"; p.pf = 1; p.b = "coo" }
       return p
     }
     // calm (light, or idle while hovered)
@@ -174,8 +190,11 @@ Item {
     return p
   }
   readonly property var p: pose()
-  readonly property string key: [p.e, p.lx, p.ly, p.b, p.w, p.f, p.pf, p.sq, p.ln, p.bl, p.hx, p.hy, p.bag, p.h].join("|")
-  readonly property string groundKey: "1|" + p.sh
+  readonly property string key: [p.e, p.lx, p.ly, p.b, p.w, p.f, p.pf, p.sq, p.ln, p.bl, p.hx, p.hy, p.bag, p.h, season, seasonConf, p.cap || ""].join("|")
+  readonly property string groundKey: "1|" + p.sh + "|" + season
+  // Season: confetti raining while petted on party days (not with motion "still").
+  readonly property string seasonConf: season === "party" && reaction === "pet" && motion !== "still" && rt < 2
+    ? String(Math.floor(rt * 8) / 16) : ""
 
   // ---------- bag lights ----------
   // One character per light ("1" "2" down, "3" "4" up): 0 off, 1 lit,
@@ -201,12 +220,38 @@ Item {
   readonly property var bodyPalette: {
     var s = pet.leds
     var off = colors.base.e
-    return colors.extend({
+    var extra = {
       "1": ledColor(s.charAt(0), off), "2": ledColor(s.charAt(1), off),
       "3": ledColor(s.charAt(2), off), "4": ledColor(s.charAt(3), off)
-    })
+    }
+    for (var k in seasonKeys) extra[k] = seasonKeys[k]
+    return colors.extend(extra)
   }
-  readonly property var plainPalette: colors.base
+  // season keys (PetSeason.COLORS) only while a season is on
+  readonly property var seasonKeys: season !== "" ? PetSeason.palette(colors.bg, Qt.rgba) : ({})
+  readonly property var plainPalette: season !== "" ? colors.extend(seasonKeys) : colors.base
+
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while asleep + puffs up more; morning: the first wake of
+  // the day (idle -> light) is a stretch + coffee. Single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property real morningT0: 0
+  readonly property bool dozing: mood === "idle"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (pet.active && pet.morningDay !== new Date().toDateString() && pet.mood === "light" && pet.reaction === "" && !touch.dragged) pet.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    pet.morningDay = new Date().toDateString()
+    pet.morningT0 = pet.clock
+    pet.fidget = ""
+    morningPlay.restart()
+  }
 
   // ---------- timers (only while visible and calm) ----------
   readonly property bool calm: active && !sleepy && !busy && !offline && !grooving && reaction === "" && !touch.dragged
@@ -226,6 +271,7 @@ Item {
       var kinds = ["look", "preen", "bob", "coo", "stretch"]
       pet.fidgetAt = pet.clock
       pet.fidget = kinds[Math.floor(Math.random() * kinds.length)]
+      if (pet.night && Math.random() < 0.5) pet.fidget = "coo"   // day-night: extra sleepy (puffs up)
       fidgetEnd.restart()
       interval = 8000 + Math.floor(Math.random() * 7000)
     }
@@ -244,7 +290,7 @@ Item {
   PixelSprite {
     px: pet.px
     palette: pet.plainPalette
-    rows: Sprites.ground(pet.groundKey)
+    rows: Sprites.ground(pet.groundKey, PetSeason)
   }
   PixelSprite {
     id: body
@@ -252,7 +298,7 @@ Item {
     x: pet.p.dx * pet.px
     y: pet.p.hop * pet.px
     palette: pet.bodyPalette
-    rows: Sprites.pigeon(pet.key)
+    rows: Sprites.pigeon(pet.key, PetSeason)
   }
   PixelSprite {
     px: pet.px

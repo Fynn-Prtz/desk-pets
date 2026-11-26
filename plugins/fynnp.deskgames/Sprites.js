@@ -365,6 +365,7 @@ function build(o) {
       function(x, y, inside) { return !IN(inside, x, y - 1) ? "n" : "d" })
   }
 
+  if (o.acc || o.cap || o.mug !== undefined) seasonGamer(g, o, hcx, hcy, hry)   // season: antlers + red nose / horns / party hat; day-night: nightcap, mug
   // Controller
   var pad = o.pad || "hold"
   var px0 = 16, py0 = 24 + sq
@@ -403,6 +404,7 @@ function build(o) {
     }
   }
 
+  if (o.conf !== undefined) seasonConfetti(g, o.conf)   // season: confetti burst
   var rows = []
   for (var y6 = 0; y6 < H; y6++) rows.push(g[y6].join(""))
   return rows
@@ -414,7 +416,8 @@ function frame(o) {
   var f = o.face || {}
   var key = [o.lift || 0, o.squash || 0, o.arms || "", o.pad || "", o.press || "", o.lit || "", o.gills || "", o.headset || "",
     o.tail || "", o.legs || "", o.lean || 0, o.trophy ? 1 : 0,
-    o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : ""].join("|")
+    o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : "",
+    o.acc || "", o.conf === undefined ? "" : o.conf, o.cap ? 1 : 0, o.mug === undefined ? "" : o.mug].join("|")
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -445,8 +448,9 @@ function init(fx) {
   dustR = mirrorRows(fx.dust[1])
 }
 
-function scene(st, fx0) {
+function scene(st, fx0, season0) {
   if (fx0) init(fx0)
+  if (season0) SEASON = season0
   var t = st.t, tick = Math.floor(t * 4), mood = st.mood, strain = st.strain || 0
   var o = { arms: "hold", pad: "hold", gills: "rest", headset: "on", tail: "rest", legs: "stand" }
   var face = { eyes: st.blink ? "blink" : "open", mouth: "smile", lookX: 0, lookY: 0 }
@@ -555,6 +559,9 @@ function scene(st, fx0) {
     }
   }
 
+  if (st.morningT >= 0 && mood === "ready" && SEASON) face = dayMorning(o, st, face)   // day-night: morning stretch + coffee
+  if (sleepy && st.night && SEASON) o.cap = 1   // day-night: nightcap while curled up after 23:00
+
   // ---- touch reactions ----
   var struggling = mood === "playing" && strain > 0
   if (st.dragged) {
@@ -624,6 +631,7 @@ function scene(st, fx0) {
   }
 
   o.face = face
+  seasonScene(o, st)
   if (fx.length > FX_SLOTS) fx = fx.slice(0, FX_SLOTS)
   var air = Math.max(0, -dy)
   return { rows: frame(o), x: dx, y: dy, shadow: shadow[Math.min(2, air)], fx: fx }
@@ -638,3 +646,86 @@ function sweat(fx, t, n) {
 }
 
 function keepSweat(t) { var fx = []; sweat(fx, t, 1); return fx }
+
+// ---------------------------------------------------------------- season
+//
+// Seasonal outfit (shared/PetSeason.js): the excitable gamer kid goes full
+// costume. Christmas: reindeer-antler headband over the headset + a glowing
+// red Rudolph nose; October: little red devil horns; party days: a party hat
+// between the gills, confetti on the floor and a burst while petted (not
+// with motion "still"). Frame key fields acc + conf.
+
+var SEASON = null    // PetSeason, handed in by the caller like PetFx
+
+function seasonScene(o, st) {
+  if (!SEASON || !st.season) return
+  o.acc = st.season
+  if (st.season === "party" && st.reaction === "pet" && st.motion !== "still" && st.reactT < 2)
+    o.conf = Math.floor(st.reactT * 8) / 16
+}
+
+var ANTLER = [
+  "oo.oo.",
+  "oToTo.",
+  "oTTTUo",
+  ".oTUo.",
+  "..oUo.",
+  "..oUo."
+]
+var HORN = [
+  "..o.",
+  ".oRo",
+  "oRMo",
+  "oRMo"
+]
+
+function seasonGamer(g, o, hcx, hcy, hry) {
+  var top = Math.ceil(hcy - hry)
+  var cx = Math.round(hcx)
+  if (o.mug !== undefined) stamp(g, 19, 20, SEASON.mug(o.mug))   // day-night: morning coffee in both hands
+  if (o.cap) {   // day-night: nightcap instead of any hat
+    SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("night", 11, 4, 1), cx - 1, top + 2)
+    return
+  }
+  if (o.acc === "xmas") {
+    stamp(g, cx - 10, top - 4, ANTLER)
+    stamp(g, cx + 4, top - 4, mirrorRows(ANTLER))
+    // red nose with a glint, just above the mouth
+    var ny = Math.round(hcy) - 3 + ((o.squash || 0) > 0 ? 1 : 0) + 3
+    put(g, cx - 1, ny, "R"); put(g, cx, ny, "W"); put(g, cx - 1, ny + 1, "M"); put(g, cx, ny + 1, "R")
+  } else if (o.acc === "spooky") {
+    stamp(g, cx - 8, top - 2, HORN)
+    stamp(g, cx + 4, top - 2, mirrorRows(HORN))
+  } else if (o.acc === "party") {
+    SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("party", 8, 6, 1), cx + 1, top + 1)
+    var bits = SEASON.confetti(31, 9, 0, 34, 43, 35, -1)
+    for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".")
+  }
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(37, 16, 1, 0, 42, 32, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+// ---------------------------------------------------------------- day / night
+//
+// day-night: after 23:00 the curled-up axolotl wears a striped nightcap
+// (o.cap); the first wake between 06:00 and 10:00 (st.morningT, s since the
+// routine started, -1 = none; 4.5 s) is a big gill-flaring stretch with a
+// yawn, then the pad goes down and it holds a steaming mug in both hands
+// (o.mug = steam phase 0/1) and sips. Touch reactions still override it.
+
+function dayMorning(o, st, face) {
+  var t = st.morningT
+  if (t < 1.8) {
+    var up = t > 0.3 && t < 1.6
+    o.arms = "up"; o.pad = "floor"; o.lift = up ? 1 : 0; o.gills = up ? "flare" : "rest"
+    return { eyes: up ? "sleep" : "blink", mouth: up ? "o" : "tiny", lookX: 0, lookY: 0 }
+  }
+  o.pad = "floor"; o.lift = 0; o.gills = Math.floor(t * 4) % 2 ? "wigA" : "wigB"
+  if (t > 4.2) { o.arms = "hips"; return { eyes: "happy", mouth: "grin", lookX: 0, lookY: 0 } }
+  o.arms = "hold"; o.mug = Math.floor(t * 4) % 2
+  var sip = t > 2.6 && t < 3.4
+  return { eyes: t > 2.4 ? "happy" : "open", mouth: sip ? "tiny" : "smile", lookX: 0, lookY: 0 }
+}

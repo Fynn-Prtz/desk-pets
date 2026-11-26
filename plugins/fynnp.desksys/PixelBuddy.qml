@@ -1,6 +1,7 @@
 import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
+import "PetSeason.js" as PetSeason
 
 // Pixel penguin at a tiny CRT (px 2 on the shared 44x38 pet canvas,
 // docs/PETS.md). The penguin stands at a little desk with a beige CRT, a
@@ -30,6 +31,7 @@ Item {
   // signs) · still: mood frames only, no blinks; the card stops its clock.
   readonly property bool extras: motion === "full"
   readonly property bool still: motion === "still"
+  property string season: ""   // "" | xmas | party | spooky (PetSeason.js via the card's PetCalendar)
   property string mood: "idle"   // idle | chill | work | load | maxed | hot
   property real clock: 0
   property int px: 2
@@ -57,7 +59,7 @@ Item {
 
   // Wants frames although the mood alone would rest (the service keeps its
   // clock running for this).
-  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running
+  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running || morningPlay.running
     || (signUp && extras)
   // Reactions, drags and landings play at 8 fps; everything else at 4.
   readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
@@ -88,6 +90,7 @@ Item {
       && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered && !buddy.signUp
     onTriggered: {
       buddy.fidget = buddy.fidgets[Math.floor(Math.random() * buddy.fidgets.length)]
+      if (buddy.night && Math.random() < 0.5) buddy.fidget = "yawn"   // day-night: extra sleepy
       buddy.fidgetStart = buddy.clock
       fidgetEnd.interval = buddy.fidgetLength[buddy.fidget]
       fidgetEnd.restart()
@@ -110,6 +113,28 @@ Item {
   }
   // Landing: 0.3 s squash + dust, a little rebound, then a dizzy wobble.
   Timer { id: landPlay; interval: 1500 }
+
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while dozing + more yawns; morning: the first wake of the
+  // day (idle -> chill) is a stretch + a sip of coffee. Two single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property real morningStart: 0
+  readonly property bool dozing: mood === "idle"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (buddy.active && buddy.morningDay !== new Date().toDateString() && buddy.mood === "chill" && touch.reaction === "" && !touch.dragged) buddy.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    buddy.morningDay = new Date().toDateString()
+    buddy.morningStart = buddy.clock
+    buddy.fidget = ""
+    morningPlay.restart()
+  }
 
   PetTouch {
     id: touch
@@ -143,11 +168,20 @@ Item {
     beat: Math.floor(buddy.wall * 4),
     screenKey: buddy.screenKey,
     breakSign: buddy.signUp,
-    signWave: buddy.extras
-  }, PetFx)
+    signWave: buddy.extras,
+    season: buddy.season,
+    motion: buddy.motion,
+    night: buddy.night,
+    morningT: morningPlay.running ? buddy.clock - buddy.morningStart : -1
+  }, PetFx, PetSeason)
 
-
-  readonly property var bodyPalette: colors.extend({ "L": colors.accent })
+  // season keys (PetSeason.COLORS) only while a season is on
+  readonly property var seasonKeys: season !== "" ? PetSeason.palette(colors.bg, Qt.rgba) : ({})
+  readonly property var bodyPalette: {
+    var extra = { "L": colors.accent }
+    for (var k in seasonKeys) extra[k] = seasonKeys[k]
+    return colors.extend(extra)
+  }
   readonly property var fxPalettes: ({
     "o": colors.fx(colors.fg),
     "r": colors.fx(colors.urgent),
