@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.Commons
 import qs.Commons as Commons
 
@@ -45,6 +46,23 @@ Item {
   property real cardHeight: 200
   // Cards that publish their rect for magnetic snapping.
   property var peerIds: ["fynnp.desksys", "fynnp.deskmem", "fynnp.deskdisk", "fynnp.deskaudio", "fynnp.deskgames", "fynnp.desknet", "fynnp.deskclock", "fynnp.deskweather"]
+
+  // ---------- scale ----------
+  // Cards keep the same physical size on every monitor: relative to the
+  // configured default monitor, using Hyprland's (fractional) scale (Qt
+  // rounds 1.25 up to a dpr of 2). Never larger than 1.
+  function hyprScale(sc) {
+    var m = sc ? Hyprland.monitorFor(sc) : null
+    return m && m.scale > 0 ? m.scale : 1
+  }
+  function scaleFor(sc) {
+    var ref = screenNamed(defaultMonitor) || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+    return Math.max(0.4, Math.min(1, hyprScale(ref) / hyprScale(sc)))
+  }
+  readonly property real homeScale: homeScreen ? scaleFor(homeScreen) : 1
+  // Card size on the home monitor (edit-mode geometry, layout files, snapping).
+  readonly property real cw: cardWidth * homeScale
+  readonly property real ch: cardHeight * homeScale
 
   // ---------- outputs ----------
   readonly property bool editing: editOn && ready
@@ -130,7 +148,7 @@ Item {
   readonly property var spec: {
     var hs = homeScreen
     if (savedHere && hs) {
-      var sw = saved.w > 0 ? saved.w : cardWidth, sh = saved.h > 0 ? saved.h : cardHeight
+      var sw = saved.w > 0 ? saved.w : cw, sh = saved.h > 0 ? saved.h : ch
       var dl = saved.x, dr = hs.width - saved.x - sw
       var dt = saved.y, db = hs.height - saved.y - sh
       return {
@@ -150,8 +168,8 @@ Item {
     if (!sc) return { mh: 0, mv: 0 }
     var w = Math.ceil(cardWidth * uiScale), h = Math.ceil(cardHeight * uiScale)
     return {
-      mh: Math.max(0, Math.min(Math.round(spec.mh * uiScale), sc.width - w)),
-      mv: Math.max(0, Math.min(Math.round(spec.mv * uiScale), sc.height - h))
+      mh: Math.max(0, Math.min(Math.round(spec.mh * uiScale / homeScale), sc.width - w)),
+      mv: Math.max(0, Math.min(Math.round(spec.mv * uiScale / homeScale), sc.height - h))
     }
   }
 
@@ -159,14 +177,14 @@ Item {
   readonly property real homeX: {
     var hs = homeScreen
     if (!hs) return 0
-    var x = spec.h === "left" ? spec.mh : spec.h === "right" ? hs.width - spec.mh - cardWidth : (hs.width - cardWidth) / 2
-    return Math.round(Math.max(0, Math.min(x, hs.width - cardWidth)))
+    var x = spec.h === "left" ? spec.mh : spec.h === "right" ? hs.width - spec.mh - cw : (hs.width - cw) / 2
+    return Math.round(Math.max(0, Math.min(x, hs.width - cw)))
   }
   readonly property real homeY: {
     var hs = homeScreen
     if (!hs) return 0
-    var y = spec.v === "top" ? spec.mv : spec.v === "bottom" ? hs.height - spec.mv - cardHeight : (hs.height - cardHeight) / 2
-    return Math.round(Math.max(0, Math.min(y, hs.height - cardHeight)))
+    var y = spec.v === "top" ? spec.mv : spec.v === "bottom" ? hs.height - spec.mv - ch : (hs.height - ch) / 2
+    return Math.round(Math.max(0, Math.min(y, hs.height - ch)))
   }
 
   // ---------- snapping ----------
@@ -185,7 +203,7 @@ Item {
     var out = []
     var hs = homeScreen
     if (!hs) return out
-    var size = axis === "x" ? cardWidth : cardHeight
+    var size = axis === "x" ? cw : ch
     for (var id in peerRects) {
       var r = peerRects[id]
       if (!r || r.monitor !== hs.name) continue
@@ -197,8 +215,8 @@ Item {
   readonly property point snap: {
     var hs = homeScreen
     if (!hs || !dragging) return Qt.point(homeX, homeY)
-    return Qt.point(snapAxis(dragX, cardWidth, hs.width, marginX, peerTargets("x")),
-                    snapAxis(dragY, cardHeight, hs.height, marginY, peerTargets("y")))
+    return Qt.point(snapAxis(dragX, cw, hs.width, marginX, peerTargets("x")),
+                    snapAxis(dragY, ch, hs.height, marginY, peerTargets("y")))
   }
 
   // ---------- files ----------
@@ -282,7 +300,7 @@ Item {
   function publishRect(x, y) {
     if (!ready || !homeScreen) return
     rectFile.setText(JSON.stringify({ monitor: homeScreen.name, x: Math.round(x), y: Math.round(y),
-                                      w: Math.round(cardWidth), h: Math.round(cardHeight) }) + "\n")
+                                      w: Math.round(cw), h: Math.round(ch) }) + "\n")
   }
   onEditingChanged: {
     dragging = false
@@ -293,9 +311,9 @@ Item {
   function touch() { if (editing) editFile.setText("1\n" + grid + "\n") }
   function leave() { editFile.setText("0\n") }
 
-  function save(monitorName, x, y) {
+  function save(monitorName, x, y, w, h) {
     var obj = { monitor: monitorName, x: Math.round(x), y: Math.round(y),
-                w: Math.round(cardWidth), h: Math.round(cardHeight) }
+                w: Math.round(w > 0 ? w : cw), h: Math.round(h > 0 ? h : ch) }
     saved = obj
     layoutFile.setText(JSON.stringify(obj) + "\n")
     publishRect(obj.x, obj.y)
@@ -323,7 +341,7 @@ Item {
     if (dx > 0) x = Math.floor(x / g) * g + g
     if (dy < 0) y = Math.ceil(y / g) * g - g
     if (dy > 0) y = Math.floor(y / g) * g + g
-    save(hs.name, Math.max(0, Math.min(x, hs.width - cardWidth)), Math.max(0, Math.min(y, hs.height - cardHeight)))
+    save(hs.name, Math.max(0, Math.min(x, hs.width - cw)), Math.max(0, Math.min(y, hs.height - ch)))
   }
 
   readonly property var nextScreen: {
@@ -337,11 +355,13 @@ Item {
   function moveToNext() {
     var n = nextScreen
     if (!n) return
-    var mh = Math.min(spec.mh, Math.max(0, n.width - cardWidth))
-    var mv = Math.min(spec.mv, Math.max(0, n.height - cardHeight))
-    var x = spec.h === "left" ? mh : spec.h === "right" ? n.width - mh - cardWidth : (n.width - cardWidth) / 2
-    var y = spec.v === "top" ? mv : spec.v === "bottom" ? n.height - mv - cardHeight : (n.height - cardHeight) / 2
-    save(n.name, Math.max(0, x), Math.max(0, y))
+    var s = scaleFor(n), r = s / homeScale
+    var w = cardWidth * s, h = cardHeight * s
+    var mh = Math.min(Math.round(spec.mh * r), Math.max(0, n.width - w))
+    var mv = Math.min(Math.round(spec.mv * r), Math.max(0, n.height - h))
+    var x = spec.h === "left" ? mh : spec.h === "right" ? n.width - mh - w : (n.width - w) / 2
+    var y = spec.v === "top" ? mv : spec.v === "bottom" ? n.height - mv - h : (n.height - h) / 2
+    save(n.name, Math.max(0, x), Math.max(0, y), w, h)
   }
 
   Component.onDestruction: if (ready) rectFile.setText("\n")
@@ -352,8 +372,8 @@ Item {
     visible: place.dragging
     x: place.snap.x
     y: place.snap.y
-    width: place.cardWidth
-    height: place.cardHeight
+    width: place.cw
+    height: place.ch
     radius: Style.cornerRadius
     color: Util.alpha(Commons.Color.accent, 0.10)
     border.width: 1
@@ -364,8 +384,8 @@ Item {
   Rectangle {
     x: place.cardX
     y: place.cardY
-    width: place.cardWidth
-    height: place.cardHeight
+    width: place.cw
+    height: place.ch
     radius: Style.cornerRadius
     color: "transparent"
     border.width: place.activeFocus ? 2 : 1
@@ -385,8 +405,8 @@ Item {
     onHeightChanged: place.syncMask()
     x: place.cardX
     y: place.chipInside ? place.cardY : place.cardY - chip.height - 4
-    width: place.cardWidth
-    height: place.chipInside ? place.cardHeight : place.cardHeight + chip.height + 4
+    width: place.cw
+    height: place.chipInside ? place.ch : place.ch + chip.height + 4
 
     MouseArea {
       anchors.fill: parent
@@ -411,8 +431,8 @@ Item {
         if (!place.dragging || !place.homeScreen) return
         var p = mapToItem(place, mouse.x, mouse.y)
         var hs = place.homeScreen
-        place.dragX = Math.max(0, Math.min(place.startX + p.x - place.pressX, hs.width - place.cardWidth))
-        place.dragY = Math.max(0, Math.min(place.startY + p.y - place.pressY, hs.height - place.cardHeight))
+        place.dragX = Math.max(0, Math.min(place.startX + p.x - place.pressX, hs.width - place.cw))
+        place.dragY = Math.max(0, Math.min(place.startY + p.y - place.pressY, hs.height - place.ch))
       }
       onReleased: function(mouse) {
         if (mouse.button === Qt.RightButton) { place.reset(); return }

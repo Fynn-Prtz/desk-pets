@@ -102,7 +102,9 @@ Item {
     return screens.length > 0 ? screens[0] : null
   }
   readonly property var targetScreen: homeScreen
-  readonly property real uiScale: 1
+  // No fullscreen escape (it is the games card), but the same physical size on
+  // every monitor when you move it (DeskPlace.scaleFor).
+  readonly property real uiScale: place.scaleFor(targetScreen)
 
   // ---------- occlusion (same rules as the audio / system cards) ----------
   readonly property var hyprMonitor: targetScreen ? Hyprland.monitorFor(targetScreen) : null
@@ -442,8 +444,8 @@ Item {
     screen: root.targetScreen
     visible: !!root.targetScreen
     color: "transparent"
-    implicitWidth: root.cardWidth
-    implicitHeight: Math.ceil(card.height)
+    implicitWidth: Math.ceil(root.cardWidth * root.uiScale)
+    implicitHeight: Math.ceil(card.height * root.uiScale)
 
     // Position, layer and input come from DeskPlace (layout file + edit mode).
     // center-*: one side anchored only; layer-shell centers it vertically.
@@ -477,6 +479,8 @@ Item {
       Behavior on color { ColorAnimation { duration: Style.duration(250); easing.type: Easing.OutCubic } }
       borderSpec: root.borderOpacity > 0 ? Border.flat(Util.alpha(Color.foreground, root.borderOpacity), 1) : Border.none()
       radius: Style.cornerRadius
+      scale: root.uiScale
+      transformOrigin: Item.TopLeft
 
       HoverHandler {
         onHoveredChanged: root.hovering = hovered

@@ -137,14 +137,10 @@ Item {
   readonly property bool isAway: !!targetScreen && targetScreen !== homeScreen
 
   readonly property real uiScale: {
-    if (!isAway) return 1
-    if (awayScale > 0) return awayScale
-    // Hyprland's own (fractional) scale; Qt rounds 1.25 up to a dpr of 2.
-    var hm = homeScreen ? Hyprland.monitorFor(homeScreen) : null
-    var am = Hyprland.monitorFor(targetScreen)
-    var h = hm && hm.scale > 0 ? hm.scale : 1
-    var a = am && am.scale > 0 ? am.scale : 1
-    return Math.max(0.4, Math.min(1, h / a))
+    if (isAway && awayScale > 0) return awayScale
+    // Same physical size on every monitor (relative to the default monitor;
+    // Hyprland's fractional scale, see DeskPlace.scaleFor).
+    return place.scaleFor(targetScreen)
   }
   readonly property int mx: Math.round(marginX * uiScale)
   readonly property int my: Math.round(marginY * uiScale)
