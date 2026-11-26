@@ -448,6 +448,8 @@ Item {
   // ---------- the desktop window ----------
   // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
   PetGreet { id: greet; pluginId: "fynnp.deskaudio"; rect: place.rect; active: root.active && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.deskaudio"; touch: cat.touch }
 
   PanelWindow {
     id: win
@@ -522,6 +524,8 @@ Item {
           PixelCat {
             id: cat
             greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             px: 2
             place: place
             level: root.level

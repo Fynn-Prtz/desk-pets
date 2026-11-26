@@ -40,6 +40,10 @@ polled:
   visible pet says hello once, card by card from left to right: the penguin waves and types "HI", the
   hamster waves and offers you a seed, the cat lifts a headphone cup to listen, the dachshund spins, the
   pigeon flies a loop and hands you a letter, the axolotl jumps with a "1UP".
+- The pets remember being petted (`~/.local/state/fynnp-desk/affection.json`). Five affection levels show
+  briefly after each pet, each pet its own way: pips on the penguin's screen, hearts over the hamster, a VU
+  meter by the cat, bones over the dachshund, heart stamps over the pigeon, a life bar on the axolotl's HUD.
+  Fond pets perk up when you hover over them, and the fondest wave.
 
 <p align="center"><img src="docs/screenshots/reactions.png" width="560" alt="Reactions to a game launch"></p>
 
@@ -112,6 +116,7 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
+| `affection` | layout | `true` | Pets count pets, show their level after petting, perk up / wave on hover |
 | `welcome`, `welcomeAfter` | layout | `true` / 120 | Pets greet you when you come back; seconds without input that count as away (30–3600) |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 

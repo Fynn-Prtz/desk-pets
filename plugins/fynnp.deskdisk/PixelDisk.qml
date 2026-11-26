@@ -1,6 +1,7 @@
 import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
+import "PetLove.js" as PetLove
 
 // Dachshund pet for the Desk Disk card (round 2; px 2 on a 44x38 cell
 // canvas; guide: docs/PETS.md). It digs and buries your data.
@@ -65,7 +66,7 @@ Item {
   property bool blinking: false
 
   // True while the pet wants frames although its mood would let it rest.
-  readonly property bool moving: grooving || touch.busy || fidget !== "" || greeting
+  readonly property bool moving: grooving || touch.busy || fidget !== "" || greeting || loveRow
   // The card's clock runs while this is true (125 ms while touch.busy).
   readonly property bool needsClock: mood !== "light" || moving
 
@@ -194,6 +195,46 @@ Item {
   readonly property string key: [p.e, p.lx, p.ly, p.m, p.p, p.g, p.ea, p.t, p.c, p.sq, p.ln, p.bl, p.hx, p.hy].join("|")
   readonly property string groundKey: [p.sh, p.ho, p.mo, p.pi].join("|")
 
+  // ---------- affection (PetMemory.qml in the card; rows from PetLove.js) ----------
+  // Level 1..5 (0 = off). After a pet: a row of bones over its back (its treasure), dug up one by one; the newest one blinks
+  // right after a level-up. On hover (motion "full", at most every 30 s): level 3 perks up,
+  // level 4+ plays the wave from its welcome-back greeting.
+  property int affection: 0
+  property bool affectionUp: false
+  property real loveStart: 0
+  property double lastHello: 0
+  readonly property bool loveRow: loveShow.running && affection > 0 && motion !== "still"
+  readonly property real loveT: clock - loveStart
+  readonly property int loveShown: Math.max(0, Math.min(5, Math.floor((loveT - 0.4) / 0.15) + 1))
+  readonly property int loveFilled: affectionUp && Math.floor(clock * 4) % 2 === 0 ? affection - 1 : affection
+  Timer { id: loveShow; interval: 3400 }
+  Connections {
+    target: touch
+    function onSerialChanged() { if (touch.reaction === "pet" && pet.affection > 0) { pet.loveStart = pet.clock; loveShow.restart() } }
+    function onHoveredChanged() { if (touch.hovered) pet.hoverHello() }
+  }
+  function greetPart(from, to) {
+    fidget = ""; fidgetEnd.stop(); greetWoke = false; greetAt = clock - from
+    greetPlay.interval = Math.round((to - from) * 1000); greetPlay.restart()
+  }
+  function hoverHello() {
+    if (motion !== "full" || !active || affection < 3 || greeting || touch.reaction !== "" || touch.dragged) return
+    var now = Date.now()
+    if (now - lastHello < 30000) return
+    lastHello = now
+    if (affection >= 4) greetPart(0.4, 1.6); else greetPart(0, 0.4)
+  }
+  PixelSprite {
+    visible: pet.loveRow && pet.loveT >= 0.4
+    px: pet.px
+    x: 9 * pet.px
+    y: 1 * pet.px
+    z: 5
+    opacity: pet.loveT > 3.0 ? 0.5 : 1
+    palette: pet.bodyPalette
+    rows: pet.loveRow ? PetLove.row(["ll..ll", ".llll.", "ll..ll"], ["nn..nn", ".nnnn.", "nn..nn"], 5, pet.loveFilled, pet.loveShown, 1) : []
+  }
+
   // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
   // Bolts upright ("!" if it was curled up asleep), spins round and round in
   // place (the body sprite mirrors every quarter second, hopping on each
@@ -207,7 +248,7 @@ Item {
   readonly property bool greetFlip: greeting && !full && !touch.dragged && reaction === "" && gt >= 0.4 && gt < 1.6
     && Math.floor((gt - 0.4) * 4) % 2 === 1
   onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
-    fidget = ""; fidgetEnd.stop(); greetWoke = sleepy; greetAt = clock; greetPlay.restart()
+    fidget = ""; fidgetEnd.stop(); greetWoke = sleepy; greetAt = clock; greetPlay.interval = 2700; greetPlay.restart()
   }
   onMotionChanged: if (motion === "still") greetPlay.stop()
   Timer { id: greetPlay; interval: 2700 }

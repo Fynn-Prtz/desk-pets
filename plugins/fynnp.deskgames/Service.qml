@@ -407,6 +407,8 @@ Item {
 
   // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
   PetGreet { id: greet; pluginId: "fynnp.deskgames"; rect: place.rect; active: root.active && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.deskgames"; touch: gamer.touch }
 
   PanelWindow {
     id: win
@@ -468,6 +470,8 @@ Item {
           PixelGamer {
             id: gamer
             greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             px: 2
             mood: root.mood
             strain: root.peerStrain

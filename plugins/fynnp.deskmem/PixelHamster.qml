@@ -1,6 +1,7 @@
 import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as Fx
+import "PetLove.js" as PetLove
 
 // Pixel hamster that hoards RAM in its cheek pouches (docs/PETS.md).
 // 44 x 38 cells at px 2. The frame is a short string key; the sprite only
@@ -53,7 +54,7 @@ Item {
   property real landT0: 0
 
   // Needs frames although the mood alone would rest (calm is still).
-  readonly property bool moving: touch.busy || grooving || fidget !== "" || greeting
+  readonly property bool moving: touch.busy || grooving || fidget !== "" || greeting || loveRow
 
   readonly property int step: Math.floor(clock * 4 + 0.001)   // 4 per second
   readonly property int fstep: Math.floor(clock * 8 + 0.001)  // 8 per second (reactions)
@@ -369,6 +370,46 @@ Item {
     }
   }
 
+  // ---------- affection (PetMemory.qml in the card; rows from PetLove.js) ----------
+  // Level 1..5 (0 = off). After a pet: hearts above its head, popping in one by one like seeds being counted into the hoard; the newest one blinks
+  // right after a level-up. On hover (motion "full", at most every 30 s): level 3 perks up,
+  // level 4+ plays the wave from its welcome-back greeting.
+  property int affection: 0
+  property bool affectionUp: false
+  property real loveStart: 0
+  property double lastHello: 0
+  readonly property bool loveRow: loveShow.running && affection > 0 && motion !== "still"
+  readonly property real loveT: clock - loveStart
+  readonly property int loveShown: Math.max(0, Math.min(5, Math.floor((loveT - 0.4) / 0.15) + 1))
+  readonly property int loveFilled: affectionUp && Math.floor(clock * 4) % 2 === 0 ? affection - 1 : affection
+  Timer { id: loveShow; interval: 3400 }
+  Connections {
+    target: touch
+    function onSerialChanged() { if (touch.reaction === "pet" && pet.affection > 0) { pet.loveStart = pet.clock; loveShow.restart() } }
+    function onHoveredChanged() { if (touch.hovered) pet.hoverHello() }
+  }
+  function greetPart(from, to) {
+    fidget = ""; fidgetEnd.stop(); greetWoke = false; greetT0 = clock - from
+    greetPlay.interval = Math.round((to - from) * 1000); greetPlay.restart()
+  }
+  function hoverHello() {
+    if (motion !== "full" || !active || affection < 3 || greeting || touch.reaction !== "" || touch.dragged) return
+    var now = Date.now()
+    if (now - lastHello < 30000) return
+    lastHello = now
+    if (affection >= 4) greetPart(0.5, 1.9); else greetPart(0, 0.5)
+  }
+  PixelSprite {
+    visible: pet.loveRow && pet.loveT >= 0.4
+    px: pet.px
+    x: 12 * pet.px
+    y: 0 * pet.px
+    z: 5
+    opacity: pet.loveT > 3.0 ? 0.5 : 1
+    palette: pet.pal
+    rows: pet.loveRow ? PetLove.row(["r.r", "rrr", ".r."], ["n.n", "nnn", ".n."], 5, pet.loveFilled, pet.loveShown, 1) : []
+  }
+
   // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
   // Pops up ("!" if it was asleep), waves one paw high, then holds out a
   // sunflower seed for you, its most precious thing. Stuffed cheeks stay
@@ -380,7 +421,7 @@ Item {
   readonly property real tGreet: clock - greetT0
   onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
     fidget = ""; fidgetEnd.stop(); greetWoke = mood === "sleep" && !touch.hovered
-    greetT0 = clock; greetPlay.restart()
+    greetT0 = clock; greetPlay.interval = 2700; greetPlay.restart()
   }
   onMotionChanged: if (motion === "still") greetPlay.stop()
   Timer { id: greetPlay; interval: 2700 }
