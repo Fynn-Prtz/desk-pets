@@ -23,7 +23,7 @@ PY
   echo "$out"
   echo "$out" | grep -q "RESULT OK" || fail=1
 done <<'CFG'
-fynnp.desksys|PixelBuddy|{type:"PixelBuddy",base:{catMood:"",gamerMood:""},cases:[{name:"chill",props:{mood:"chill"},fidgets:true},{name:"chill+cat",props:{mood:"chill",catMood:"dance"}},{name:"chill+gamer",props:{mood:"chill",gamerMood:"launching"}},{name:"idle",props:{mood:"idle"}},{name:"work",props:{mood:"work"}}]}
+fynnp.desksys|PixelBuddy|{type:"PixelBuddy",base:{catMood:"",gamerMood:"",breakSign:false},cases:[{name:"chill+break",props:{mood:"chill",breakSign:true}},{name:"idle+break",props:{mood:"idle",breakSign:true}},{name:"chill",props:{mood:"chill"},fidgets:true},{name:"chill+cat",props:{mood:"chill",catMood:"dance"}},{name:"chill+gamer",props:{mood:"chill",gamerMood:"launching"}},{name:"idle",props:{mood:"idle"}},{name:"work",props:{mood:"work"}}]}
 fynnp.deskmem|PixelHamster|{type:"PixelHamster",base:{catMood:""},cases:[{name:"calm",props:{mood:"calm"},fidgets:true},{name:"calm+cat",props:{mood:"calm",catMood:"dance"}},{name:"busy",props:{mood:"busy"}},{name:"sleep",props:{mood:"sleep"}}]}
 fynnp.deskaudio|PixelCat|{type:"PixelCat",base:{buddyMood:"",gamerMood:"",playing:false,level:0},cases:[{name:"idle",props:{level:0.1},fidgets:true},{name:"idle+buddy",props:{level:0.1,buddyMood:"load"}},{name:"dance",props:{playing:true,level:0.5}},{name:"sleep",props:{level:0}}]}
 fynnp.deskdisk|PixelDisk|{type:"PixelDisk",base:{catMood:"",readRate:0,writeRate:0},cases:[{name:"light",props:{mood:"light"},fidgets:true},{name:"light+cat",props:{mood:"light",catMood:"dance"}},{name:"busy",props:{mood:"busy",readRate:2e7}},{name:"idle",props:{mood:"idle"}}]}

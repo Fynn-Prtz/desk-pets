@@ -108,7 +108,9 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `fallbackMonitor` | system, memory, audio, net | the other screen | Where to escape to when the home monitor has a fullscreen window |
 | `awayScale` | system, memory, audio, net | auto | Size there (`0` = same physical size) |
 | `interval` | system, memory, disk, net | 1000 / 3000 / 1000 / 1000 | Poll interval in ms (only while visible) |
-| `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
+| `breakReminder`, `breakRest` | system | 0 / 5 | Break buddy: after `breakReminder` minutes of activity (e.g. `50`; `0` = off) the penguin holds up a "take a break" sign and the card says so, until you've had no keyboard/mouse input for `breakRest` minutes. Event-driven (Wayland idle notifications), no polling |
+| `rows`, `hide` | disk |
+ 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |

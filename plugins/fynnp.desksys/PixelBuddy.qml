@@ -36,6 +36,10 @@ Item {
   property bool active: true
   property string catMood: ""
   property string gamerMood: ""
+  // break-buddy: true while the card wants a break taken; the penguin holds
+  // up a sign with a steaming mug (waves it in motion "full").
+  property bool breakSign: false
+  readonly property bool signUp: breakSign && !stressed && !grooving && screenKey === ""
   property var place: null
   property Item window: null
   property alias touch: touch
@@ -54,6 +58,7 @@ Item {
   // Wants frames although the mood alone would rest (the service keeps its
   // clock running for this).
   readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running
+    || (signUp && extras)
   // Reactions, drags and landings play at 8 fps; everything else at 4.
   readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
 
@@ -63,7 +68,7 @@ Item {
 
   // ---------- blinks ----------
   property bool blinking: false
-  readonly property bool awake: mood === "chill" || mood === "work" || (mood === "idle" && touch.hovered)
+  readonly property bool awake: mood === "chill" || mood === "work" || (mood === "idle" && touch.hovered) || signUp
   Timer {
     interval: 3200
     running: buddy.active && buddy.awake && !buddy.grooving && !buddy.still
@@ -80,7 +85,7 @@ Item {
   Timer {
     interval: 9000
     running: buddy.active && buddy.extras && buddy.mood === "chill" && !buddy.grooving && buddy.screenKey === ""
-      && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered
+      && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered && !buddy.signUp
     onTriggered: {
       buddy.fidget = buddy.fidgets[Math.floor(Math.random() * buddy.fidgets.length)]
       buddy.fidgetStart = buddy.clock
@@ -93,6 +98,7 @@ Item {
   onMoodChanged: if (fidget !== "" && mood !== "chill") { fidget = ""; fidgetEnd.stop() }
   onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop() }
   onExtrasChanged: if (!extras) { fidget = ""; fidgetEnd.stop() }
+  onSignUpChanged: if (signUp) { fidget = ""; fidgetEnd.stop() }
 
   // ---------- reactions ----------
   property real reactStart: 0
@@ -132,8 +138,11 @@ Item {
     landT: landPlay.running && !touch.dragged ? buddy.clock - buddy.landStart : -1,
     grooving: buddy.grooving,
     beat: Math.floor(buddy.wall * 4),
-    screenKey: buddy.screenKey
+    screenKey: buddy.screenKey,
+    breakSign: buddy.signUp,
+    signWave: buddy.extras
   }, PetFx)
+
 
   readonly property var bodyPalette: colors.extend({ "L": colors.accent })
   readonly property var fxPalettes: ({

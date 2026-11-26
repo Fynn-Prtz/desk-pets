@@ -464,10 +464,38 @@ function buildPenguin(o) {
   return g
 }
 
+// ---------------------------------------------------------------- break sign
+// break-buddy: a little picket sign with a steaming mug, held up in front of
+// the CRT by the right flipper (o.sign 1 = held, 2 = raised a cell while the
+// penguin waves it). Drawn after the desk and before the penguin, so the
+// flipper grips the stick and the board covers the top of the screen.
+var SIGN = [
+  ".eeeeeeeeeee.",
+  "ellllllllllle",
+  "eppppwpwppppe",
+  "epppwpwpppppe",
+  "eppeeeeeepppe",
+  "eppelwwweeepe",
+  "eppelwwwepepe",
+  "eppelwwweeepe",
+  "epppeeeeppppe",
+  "ekkkkkkkkkkke",
+  ".eeeeeeeeeee."
+]
+FLIPPERS.sign = [[2.5, 28.5], [22.5, 15.5]]
+FLIPPERS.signUp = [[2.5, 28.5], [22.5, 14.5]]
+function drawSign(g, o) {
+  var bx = 20, by = o.sign === 2 ? 0 : 1
+  for (var y = by + SIGN.length; y < by + SIGN.length + 5; y++) { put(g, 22, y, "w"); put(g, 23, y, "n") }
+  stamp(g, bx, by, SIGN)
+}
+
 function build(o) {
   var g = grid()
   drawDesk(g, o)
+  if (o.sign) drawSign(g, o)
   var p = buildPenguin(o)
+
   var ox = o.px || 0, oy = o.py || 0
   for (var y = 0; y < H; y++)
     for (var x = 0; x < W; x++) {
@@ -487,6 +515,7 @@ function frame(o) {
     o.tint || "", o.led || "", o.key === undefined ? "" : o.key, o.mug || "", o.crtShake || 0,
     o.lift || 0, o.squash || 0, o.melt || 0, o.doze ? 1 : 0, o.arms || "", o.legs || "", o.lean || 0, o.px || 0, o.py || 0,
     o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : ""].join("|")
+  if (o.sign) key += "|sign" + o.sign
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -669,6 +698,21 @@ function scene(st, fx0) {
     if (st.screenKey === "bang") { face.eyes = "wide"; face.mouth = "open"; o.arms = "up"; py = tick % 2 === 0 ? -1 : 0 }
   }
 
+  // ---- break-buddy: holds up a "take a break" sign (st.breakSign) ----
+  // Not while struggling (the load matters more) or while a neighbour moment
+  // plays; touch reactions below override it. st.signWave (motion full) waves
+  // the sign once a second, otherwise it is held still.
+  if (st.breakSign && !stressed && !(st.grooving && !st.reaction) && !st.screenKey) {
+    var wave = st.signWave && Math.floor(t * 2) % 2 === 0
+    o.sign = wave ? 2 : 1
+    o.arms = wave ? "signUp" : "sign"
+    o.doze = false; o.lift = 0; o.key = undefined; o.mug = ""; o.px = 0; o.legs = "stand"
+    if (o.scr === "off") { o.scr = "code"; o.cursor = true }
+    face = { eyes: st.blink ? "blink" : wave ? "happy" : "open", mouth: "smile", lookX: 0, lookY: 0 }
+    py = 0
+    fx = []
+  }
+
   // ---- reactions (override) ----
   var landing = st.landT >= 0
   var calm = { doze: false, melt: 0, lift: 0, mug: "", px: 0 }
@@ -744,8 +788,10 @@ function scene(st, fx0) {
     if (face.lookY === undefined) face.lookY = 0
     if (st.hovered && face.eyes === "open" && !st.reaction) { face.lookX = st.lookX; face.lookY = st.lookY }
   }
+  if (o.sign && (st.dragged || landing || st.reaction)) o.sign = 0
   o.face = face
   o.py = py
+
   if (fx.length > FX_SLOTS) fx = fx.slice(0, FX_SLOTS)
   var air = Math.max(0, -py)
   return { rows: frame(o), x: dx, y: 0, shadow: shadow[Math.min(2, air)], fx: fx }
