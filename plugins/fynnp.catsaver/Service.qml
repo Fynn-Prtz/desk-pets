@@ -29,6 +29,8 @@ import "Sprites.js" as Sprites
 //   pixel:   sprite pixel size on a 1440-px-tall screen; scaled per screen
 //
 // IPC (testing): omarchy-shell catsaver show | hide | status
+// Show/hide is flagged in $XDG_RUNTIME_DIR/fynnp-desk/saver ("1"/"0") for the
+// desk pets' welcome-back greeting (shared/PetGreet.qml).
 Item {
   id: root
 
@@ -117,7 +119,15 @@ Item {
       "sh", cursorMarker])
   }
 
-  onShownChanged: setCursorHidden(shown)
+  onShownChanged: { setCursorHidden(shown); flagSaver(shown) }
+
+  // Welcome back: the desk pets (PetGreet) watch this tmpfs flag with inotify
+  // and greet when it flips from "1" to "0". One tiny `sh` per show/hide.
+  readonly property string saverFlagDir: Quickshell.env("XDG_RUNTIME_DIR") + "/fynnp-desk"
+  function flagSaver(on) {
+    Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s\\n' \"$2\" > \"$1/saver\"",
+      "sh", saverFlagDir, on ? "1" : "0"])
+  }
   Component.onDestruction: if (cursorHidden) setCursorHidden(false)
   Component.onCompleted: Quickshell.execDetached(["sh", "-c",
     "[ -e \"$1\" ] || exit 0; rm -f \"$1\"; hyprctl eval 'hl.config({ cursor = { invisible = false } })' >/dev/null 2>&1"

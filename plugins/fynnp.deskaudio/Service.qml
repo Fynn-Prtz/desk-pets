@@ -354,7 +354,7 @@ Item {
   // only while a touch reaction, drag or landing plays. Adds seconds.
   // Only the cat needs it: off with pet false or petMotion still.
   Timer {
-    interval: cat.touch.busy ? 125 : 250
+    interval: cat.touch.busy || cat.greeting ? 125 : 250
     repeat: true
     running: root.active && !frames.running && root.showPet && root.petMotion !== "still"
     onTriggered: root.clock += interval / 1000
@@ -476,6 +476,10 @@ Item {
       else cat.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
     }
   }
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskaudio"; rect: place.rect; active: root.active && root.showPet && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.deskaudio"; touch: cat.touch }
 
   PanelWindow {
     id: win
@@ -553,6 +557,9 @@ Item {
             season: seasonCal.season
             night: seasonCal.night
             morning: seasonCal.morning
+            greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             px: 2
             visible: root.showPet
             width: root.showPet ? 44 * px : 0

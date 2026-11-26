@@ -1,0 +1,4 @@
+module Quickshell.Io
+singleton StubFs 1.0 StubFs.qml
+FileView 1.0 FileView.qml
+Process 1.0 Process.qml

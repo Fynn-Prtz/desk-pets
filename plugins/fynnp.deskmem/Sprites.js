@@ -371,6 +371,7 @@ function build(o) {
       stamp(g, PAW, fwdX(14), fwdY(18) + sw2, false)
       stamp(g, PAW, 43 - fwdX(14) - 3, fwdY(20) - sw2, true)
     }
+    else if (p1 === "wave" || p1 === "wave2") greetPaws(g, p1)
     else if (p1 === "cheeks") {
       var pw = Math.max(c, 1)
       var ox = c >= 2 ? CX - pcx - prx + 0.6 : 7.2
@@ -499,4 +500,25 @@ function seasonHamster(g, o, headTop, hcy, hry, ball) {
 function seasonConfetti(g, conf) {
   var bits = SEASON.confetti(11, 16, 1, 0, 42, 33, conf)
   for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+
+// ---------- welcome back (greet) ----------
+// The user is back (shared/PetGreet.qml): the hamster pops up and waves one
+// paw high beside its head ("wave" / "wave2" sway it), the other on its chest;
+// then it offers you a sunflower seed from its hoard (paws "hold" + seed).
+var WAVE_PAW = [
+  ".nn..",
+  "nppn.",
+  "nppn.",
+  "nbbn.",
+  ".nbbn",
+  "..nbn",
+  "..nbb",
+  "...nb"
+]
+function greetPaws(g, p1) {
+  var sway = p1 === "wave" ? 0 : 1
+  stamp(g, WAVE_PAW, fwdX(2) + sway * 2, fwdY(8) + sway, false)
+  stamp(g, PAW_REST, 43 - fwdX(15) - 4, fwdY(25.2), true)
 }

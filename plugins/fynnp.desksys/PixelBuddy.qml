@@ -2,6 +2,7 @@ import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
 import "PetSeason.js" as PetSeason
+import "PetLove.js" as PetLove
 
 // Pixel penguin at a tiny CRT (px 2 on the shared 44x38 pet canvas,
 // docs/PETS.md). The penguin stands at a little desk with a beige CRT, a
@@ -23,6 +24,7 @@ import "PetSeason.js" as PetSeason
 // -> "!" on the screen; gamer playing while stressed -> gamepad on the screen.
 // Touch (PetTouch): pet (heart on the screen), annoyed, squish, hover (eyes
 // follow), drag (penguin lifted, flails), landing (squash + dust, then dizzy).
+// Welcome back (greetSerial from PetGreet): wakes, waves, "HI" on the CRT.
 Item {
   id: buddy
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
@@ -59,10 +61,10 @@ Item {
 
   // Wants frames although the mood alone would rest (the service keeps its
   // clock running for this).
-  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running || morningPlay.running
+  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running || morningPlay.running || greeting || loveRow
     || (signUp && extras)
   // Reactions, drags and landings play at 8 fps; everything else at 4.
-  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
+  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running || greeting)
 
   // Wall-clock seconds, re-read on every tick: shared with the cat so z's
   // and the groove beat line up across cards.
@@ -136,6 +138,56 @@ Item {
     morningPlay.restart()
   }
 
+  // ---------- affection (PetMemory.qml in the card; rows from PetLove.js) ----------
+  // Level 1..5 (0 = off). After a pet: a love meter on the CRT: five pips along the bottom of the glass fill up like its progress bar; the newest one blinks
+  // right after a level-up. On hover (motion "full", at most every 30 s): level 3 perks up,
+  // level 4+ plays the wave from its welcome-back greeting.
+  property int affection: 0
+  property bool affectionUp: false
+  property real loveStart: 0
+  property double lastHello: 0
+  readonly property bool loveRow: loveShow.running && affection > 0 && motion !== "still"
+  readonly property real loveT: clock - loveStart
+  readonly property int loveShown: Math.max(0, Math.min(5, Math.floor((loveT - 0.4) / 0.15) + 1))
+  readonly property int loveFilled: affectionUp && Math.floor(clock * 4) % 2 === 0 ? affection - 1 : affection
+  Timer { id: loveShow; interval: 3400 }
+  Connections {
+    target: touch
+    function onSerialChanged() { if (touch.reaction === "pet" && buddy.affection > 0) { buddy.loveStart = buddy.clock; loveShow.restart() } }
+    function onHoveredChanged() { if (touch.hovered) buddy.hoverHello() }
+  }
+  function greetPart(from, to) {
+    fidget = ""; fidgetEnd.stop(); greetStart = clock - from
+    greetPlay.interval = Math.round((to - from) * 1000); greetPlay.restart()
+  }
+  function hoverHello() {
+    if (motion !== "full" || !active || affection < 3 || greeting || touch.reaction !== "" || touch.dragged) return
+    var now = Date.now()
+    if (now - lastHello < 30000) return
+    lastHello = now
+    if (affection >= 4) greetPart(0.5, 2.0); else greetPart(0, 0.5)
+  }
+  PixelSprite {
+    visible: buddy.loveRow && buddy.loveT >= 0.4
+    px: buddy.px
+    x: 30 * buddy.px
+    y: 17 * buddy.px
+    z: 5
+    opacity: buddy.loveT > 3.0 ? 0.5 : 1
+    palette: colors.base
+    rows: buddy.loveRow ? PetLove.row(["r"], ["d"], 5, buddy.loveFilled, buddy.loveShown, 1) : []
+  }
+
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  property int greetSerial: 0
+  property real greetStart: 0
+  readonly property bool greeting: greetPlay.running
+  onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
+    fidget = ""; fidgetEnd.stop(); greetStart = clock; greetPlay.interval = 2700; greetPlay.restart()
+  }
+  Timer { id: greetPlay; interval: 2700 }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+
   PetTouch {
     id: touch
     gazing: chat.looking
@@ -172,7 +224,8 @@ Item {
     season: buddy.season,
     motion: buddy.motion,
     night: buddy.night,
-    morningT: morningPlay.running ? buddy.clock - buddy.morningStart : -1
+    morningT: morningPlay.running ? buddy.clock - buddy.morningStart : -1,
+    greetT: greetPlay.running ? buddy.clock - buddy.greetStart : -1
   }, PetFx, PetSeason)
 
   // season keys (PetSeason.COLORS) only while a season is on

@@ -561,6 +561,10 @@ function scene(st, fx0, season0) {
 
   if (st.morningT >= 0 && mood === "ready" && SEASON) face = dayMorning(o, st, face)   // day-night: morning stretch + coffee
   if (sleepy && st.night && SEASON) o.cap = 1   // day-night: nightcap while curled up after 23:00
+  // ---- welcome back (greet; see greetGamer below) ----
+  if (st.greetT >= 0) {
+    var gr = greetGamer(st, tick); o = gr.o; face = gr.face; fx = gr.fx; dx = 0; dy = gr.dy
+  }
 
   // ---- touch reactions ----
   var struggling = mood === "playing" && strain > 0
@@ -728,4 +732,48 @@ function dayMorning(o, st, face) {
   o.arms = "hold"; o.mug = Math.floor(t * 4) % 2
   var sip = t > 2.6 && t < 3.4
   return { eyes: t > 2.4 ? "happy" : "open", mouth: sip ? "tiny" : "smile", lookX: 0, lookY: 0 }
+}
+
+// ---------------------------------------------------------------- welcome back
+//
+// The user is back (shared/PetGreet.qml): "player two has joined!" The gamer
+// perks up ("!" if it was curled up asleep, headset back on), jumps with the
+// pad held high and buttons flashing while a "1UP" floats up, gills flaring,
+// then waves with one hand, pad in the other, tail wagging.
+// st.greetT: seconds since the greeting started (-1 = none), ~2.7 s.
+
+ARMS.waveA = [[4.0, 20.5], [28.0, 26.0]]
+ARMS.waveB = [[2.5, 17.5], [28.0, 26.0]]
+var ONE_UP = [
+  ".o..o.o.oo.",
+  "oo..o.o.o.o",
+  ".o..o.o.oo.",
+  ".o..o.o.o..",
+  "ooo.ooo.o.."
+]
+
+function greetGamer(st, tick) {
+  var gt = st.greetT, gk = Math.floor(gt * 8), fx = [], dy = 0, o, face
+  var asleep = st.mood === "idle" && !st.hovered
+  if (gt < 0.4) {
+    o = { arms: "out", pad: "none", gills: "flare", headset: "on", tail: "rest", legs: "stand" }
+    face = { eyes: "wide", mouth: "o" }
+    dy = gt < 0.25 ? -1 : 0
+    if (asleep) fx.push({ rows: FX.bang, x: 21, y: gt < 0.25 ? 0 : 1, c: "o", op: 1 })
+  } else if (gt < 1.4) {
+    o = { arms: "raise", pad: "raised", lit: gk % 2 === 0 ? "a" : "b", gills: gk % 2 === 0 ? "wigA" : "wigB",
+          headset: "on", tail: gk % 2 === 0 ? "wagA" : "wagB", legs: "stand" }
+    face = { eyes: "happy", mouth: "grin" }
+    dy = gt < 0.65 ? -2 : gt < 0.9 ? -1 : 0
+    var up = Math.min(1, (gt - 0.4) / 1.0)
+    fx.push({ rows: ONE_UP, x: 32, y: 22 - Math.round(up * 5), c: "o", op: up < 0.85 ? 1 : 0.5 })
+    if (gk % 4 < 2) fx.push({ rows: FX.sparkle[gk % 2 === 0 ? 0 : 1], x: 2, y: 6, c: "o", op: 1 })
+  } else {
+    o = { arms: Math.floor(gt * 4) % 2 === 0 ? "waveA" : "waveB", pad: "hold", gills: gk % 2 === 0 ? "wigA" : "wigB",
+          headset: "on", tail: gk % 2 === 0 ? "wagA" : "wagB", legs: "stand" }
+    face = { eyes: "happy", mouth: Math.floor(gt * 4) % 2 === 0 ? "grin" : "omega" }
+    var hp = Math.min(1, (gt - 1.5) / 1.0)
+    if (gt >= 1.5) fx.push({ rows: FX.heartSmall, x: 36, y: 10 - Math.round(hp * 8), c: "r", op: hp < 0.85 ? 1 : 0.5 })
+  }
+  return { o: o, face: face, fx: fx, dy: dy }
 }
