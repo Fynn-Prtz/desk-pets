@@ -24,6 +24,7 @@ import "PetFx.js" as PetFx
 // follow), drag (penguin lifted, flails), landing (squash + dust, then dizzy).
 Item {
   id: buddy
+  property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
   property string mood: "idle"   // idle | chill | work | load | maxed | hot
   property real clock: 0
   property int px: 2

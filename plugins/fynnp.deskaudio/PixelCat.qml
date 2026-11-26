@@ -22,6 +22,7 @@ import "PetFx.js" as PetFx
 // a touch reaction plays). Effects are a few tiny sprites that mostly just move.
 Item {
   id: cat
+  property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
   property real level: 0
   property bool playing: false
   property real clock: 0

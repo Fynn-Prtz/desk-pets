@@ -24,6 +24,7 @@ import "PetFx.js" as PetFx
 // back), landing.
 Item {
   id: gamer
+  property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
   property string mood: "idle"   // idle | ready | launching | playing | report
   property int strain: 0         // 0 calm | 1 system under load | 2 maxed / hot
   property bool bop: false

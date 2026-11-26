@@ -30,6 +30,7 @@ import "PetFx.js" as PetFx
 // here builds rows. The file keeps its old name so the card wiring stays.
 Item {
   id: pet
+  property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
   property string mood: "idle"   // idle | light | busy | offline
   property real rx: 0            // bytes/s
   property real tx: 0

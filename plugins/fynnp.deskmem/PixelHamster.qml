@@ -21,6 +21,7 @@ import "PetFx.js" as Fx
 // plop + dust, then a dizzy wobble. Cat dances (DeskLink) -> grooves.
 Item {
   id: pet
+  property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
 
   property string mood: "sleep"   // sleep | calm | busy | strain | critical
   property real fill: 0           // used memory 0..1 (pouch size)
