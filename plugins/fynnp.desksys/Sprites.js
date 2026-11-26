@@ -723,6 +723,11 @@ function scene(st, fx0, season0) {
     fx = []
   }
 
+  // ---- welcome back (greet; see greetPenguin below) ----
+  if (st.greetT >= 0 && !st.dragged && st.landT < 0 && !st.reaction) {
+    var gr = greetPenguin(st, o, stressed); face = gr.face; py = gr.py; fx = gr.fx
+  }
+
   // ---- reactions (override) ----
   var landing = st.landT >= 0
   var calm = { doze: false, melt: 0, lift: 0, mug: "", px: 0 }
@@ -904,4 +909,46 @@ function dayMorning(o, st, fx, face) {
   var ph = Math.floor(t * 2) % 3
   fx.push({ rows: FX.puff[ph], x: 13, y: 9 - Math.floor((t - 2.1) * 2) % 4, c: "w", op: 0.5 })
   return { eyes: t > 2.5 ? "happy" : "open", mouth: t > 3.4 ? "smile" : "sip", lookX: 0, lookY: 0 }
+}
+
+// ---------------------------------------------------------------- welcome back
+//
+// The user is back (shared/PetGreet.qml): the penguin startles awake if it was
+// dozing ("!"), turns to the viewer and waves its free flipper while the CRT
+// spells "HI", then a little bow with a heart on the screen. Even under load
+// or melting it pulls itself together for the wave (keeps its sweat).
+// st.greetT: seconds since the greeting started (-1 = none), ~2.6 s long.
+
+FLIPPERS.waveA = [[-0.5, 14.0], [18.5, 28.5]]
+FLIPPERS.waveB = [[2.0, 11.5], [18.5, 28.5]]
+PICS.hi = ["E.E.EEE", "E.E..E.", "EEE..E.", "E.E..E.", "E.E.EEE"]
+
+function greetPenguin(st, o, stressed) {
+  var gt = st.greetT, gk = Math.floor(gt * 4)
+  var asleep = st.mood === "idle" && !st.hovered
+  reset(o, { doze: false, melt: 0, lift: 0, mug: "", px: 0 })
+  o.legs = "stand"; o.tint = ""; o.crtShake = 0; o.led = "L"
+  var fx = stressed ? keepSweat(st.t) : [], py = 0, face
+  if (gt < 0.5) {
+    // perk up: a little hop, eyes wide
+    o.arms = "up"; o.scr = asleep ? "bang" : "hi"
+    face = { eyes: "wide", mouth: "open" }
+    py = gt < 0.25 ? -1 : 0
+    if (asleep) fx.push({ rows: FX.bang, x: 20, y: gt < 0.25 ? 0 : 1, c: "o", op: 1 })
+  } else if (gt < 2.0) {
+    // wave with the free flipper, stomping along
+    o.arms = gk % 2 === 0 ? "waveA" : "waveB"
+    o.legs = gk % 4 === 1 ? "stompL" : "stand"
+    o.scr = "hi"
+    face = { eyes: "happy", mouth: gk % 2 === 0 ? "grin" : "omega" }
+    if (gk % 4 < 2) fx.push({ rows: FX.sparkle[gk % 2], x: 0, y: 4, c: "o", op: 1 })
+  } else {
+    // little bow, heart on the screen
+    o.arms = "hips"; o.scr = "heart"; o.lift = 0
+    face = { eyes: "squintL", mouth: "omega" }
+    var hp = Math.min(1, (gt - 2.0) / 0.7)
+    fx.push({ rows: FX.heartSmall, x: 18, y: 6 - Math.round(hp * 5), c: "r", op: hp < 0.85 ? 1 : 0.5 })
+  }
+  face.lookX = 0; face.lookY = 0
+  return { face: face, py: py, fx: fx }
 }

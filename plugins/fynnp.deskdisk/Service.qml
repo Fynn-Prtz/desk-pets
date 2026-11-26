@@ -353,7 +353,7 @@ Item {
   // to a touch or a drag.
   property real clock: 0
   Timer {
-    interval: buddy.touch.busy ? 125 : 250
+    interval: buddy.touch.busy || buddy.greeting ? 125 : 250
     repeat: true
     running: root.active && root.showPet && root.petMotion !== "still" && buddy.needsClock
     onTriggered: root.clock += interval / 1000
@@ -382,6 +382,10 @@ Item {
       else buddy.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
     }
   }
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskdisk"; rect: place.rect; active: root.active && root.showPet && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.deskdisk"; touch: buddy.touch }
 
   PanelWindow {
     id: win
@@ -466,6 +470,9 @@ Item {
             season: seasonCal.season
             night: seasonCal.night
             morning: seasonCal.morning
+            greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             px: 2
             visible: root.showPet
             width: root.showPet ? 44 * px : 0

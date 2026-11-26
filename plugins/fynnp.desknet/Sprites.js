@@ -23,7 +23,7 @@
 //   puff   0/1 puffed-up feathers (sleep, annoyed)
 //   squash 0..3   lean -1/0/1   blush 0/1/2   headX/headY head offset
 //   bag    0..3 envelopes sticking out of the bag
-//   hold   "" | map (upside-down map held in the wings)
+//   hold   "" | map (upside-down map held in the wings) | letter (welcome back)
 // ground key: "wire|shadow"  (shadow 1 while hovering/dangling)
 // front key:  pile level 0..2
 
@@ -341,6 +341,7 @@ function build(k) {
   if (o.acc || o.cap) seasonPigeon(g, o, hcx, hcy, hry, bx0, by0)   // season: hat on the bag / head
   // ---- held things ----
   if (o.hold === "map") stamp(g, MAP, Math.round(bcx) - 7, Math.round(bcy) - 5, false)
+  else if (o.hold === "letter") stamp(g, LETTER, Math.round(bcx) - 5, Math.round(bcy) - 4, false)
   if (/^mug/.test(o.hold) && SEASON) stamp(g, SEASON.mug(+o.hold.charAt(3)), Math.round(bcx) - 3, Math.round(bcy) - 6, false)   // day-night: morning coffee
   if (o.wings === "hold") layer(g, function(x, y) {
     return inEllipse(x, y, 14.5, bcy, 1.8, 2.4) || inEllipse(x, y, 28.5, bcy, 1.8, 2.4)
@@ -525,3 +526,15 @@ function seasonConfetti(g, conf) {
   var bits = SEASON.confetti(29, 16, 1, 0, 42, 31, conf)
   for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
 }
+// ---------- welcome back (greet) ----------
+// A letter with a heart seal, held out in both wings: the courier's
+// "welcome back" delivery (hold "letter", PixelRouter's greeting).
+var LETTER = [
+  "eeeeeeeeeee",
+  "ewllllllwle",
+  "elwllllwlle",
+  "ellwrlrwlle",
+  "ellrrrrrlle",
+  "elllrrrllle",
+  "eeeeeeeeeee"
+]

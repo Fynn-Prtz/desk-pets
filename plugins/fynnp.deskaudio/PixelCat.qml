@@ -2,6 +2,7 @@ import QtQuick
 import "Sprites.js" as Sprites
 import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
+import "PetLove.js" as PetLove
 
 // Pixel cat (v2): a sitting tabby on a 44x38 cell grid at px 2. All the
 // choreography lives in Sprites.scene(): this item only turns the card's data
@@ -42,7 +43,7 @@ Item {
 
   property alias touch: petTouch
   // True while the cat wants frames although nothing else would tick.
-  readonly property bool moving: petTouch.busy || fidgeting || landT >= 0 || morningPlay.running
+  readonly property bool moving: petTouch.busy || fidgeting || landT >= 0 || morningPlay.running || greeting || loveRow
 
   // Dance tiers from sustained loudness (EMA of the level) -- tune live.
   property real gentleBelow: 0.22
@@ -56,7 +57,7 @@ Item {
   // ---------- time ----------
   // Ticks in 1/8 s. At 4 fps it advances by 2, so all one-shot animations
   // keep their timing when the clock speeds up for a reaction.
-  readonly property int tick: petTouch.busy ? Math.floor(clock * 8) : Math.floor(clock * 4) * 2
+  readonly property int tick: petTouch.busy || greeting ? Math.floor(clock * 8) : Math.floor(clock * 4) * 2
   // Wall-clock quarter seconds, re-read on every clock tick: the z's of the
   // cat and the buddy share one phase, so they float up in sync.
   readonly property int wallQ: { var c = cat.clock; return Math.floor((Date.now() % 100000000) / 250) }
@@ -143,6 +144,57 @@ Item {
     morningPlay.restart()
   }
 
+  // ---------- affection (PetMemory.qml in the card; rows from PetLove.js) ----------
+  // Level 1..5 (0 = off). After a pet: a VU meter beside its head: five rising bars sweep up to its affection level; the newest one blinks
+  // right after a level-up. On hover (motion "full", at most every 30 s): level 3 perks up,
+  // level 4+ plays the wave from its welcome-back greeting.
+  property int affection: 0
+  property bool affectionUp: false
+  property real loveStart: 0
+  property double lastHello: 0
+  readonly property bool loveRow: loveShow.running && affection > 0 && motion !== "still"
+  readonly property real loveT: clock - loveStart
+  readonly property int loveShown: Math.max(0, Math.min(5, Math.floor((loveT - 0.4) / 0.15) + 1))
+  readonly property int loveFilled: affectionUp && Math.floor(clock * 4) % 2 === 0 ? affection - 1 : affection
+  Timer { id: loveShow; interval: 3400 }
+  Connections {
+    target: petTouch
+    function onSerialChanged() { if (petTouch.reaction === "pet" && cat.affection > 0) { cat.loveStart = cat.clock; loveShow.restart() } }
+    function onHoveredChanged() { if (petTouch.hovered) cat.hoverHello() }
+  }
+  function greetPart(from, to) {
+    fidget = ""; greetStart = Math.floor(clock * 8) - Math.round(from * 8)
+    greetPlay.interval = Math.round((to - from) * 1000); greetPlay.restart()
+  }
+  function hoverHello() {
+    if (motion !== "full" || !active || affection < 3 || greeting || petTouch.reaction !== "" || petTouch.dragged) return
+    var now = Date.now()
+    if (now - lastHello < 30000) return
+    lastHello = now
+    if (affection >= 4) greetPart(1.875, 2.75); else greetPart(0, 0.5)
+  }
+  PixelSprite {
+    visible: cat.loveRow && cat.loveT >= 0.4
+    px: cat.px
+    x: 34 * cat.px
+    y: 0 * cat.px
+    z: 5
+    opacity: cat.loveT > 3.0 ? 0.5 : 1
+    palette: colors.base
+    rows: cat.loveRow ? PetLove.bars(5, cat.loveFilled, cat.loveShown, "p", "n") : []
+  }
+
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  // Lifts one headphone cup to hear you, slow-blinks hello (Sprites greet()).
+  property int greetSerial: 0
+  property int greetStart: 0
+  readonly property bool greeting: greetPlay.running
+  onGreetSerialChanged: if (motion !== "still" && active && !petTouch.dragged) {
+    fidget = ""; greetStart = Math.floor(clock * 8); greetPlay.interval = 2800; greetPlay.restart()
+  }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+  Timer { id: greetPlay; interval: 2800 }
+
   // ---------- scene ----------
   readonly property var scene: Sprites.scene({
     mode: mode, t: tick, tier: tier, amp: amp, blink: blinking,
@@ -153,7 +205,8 @@ Item {
     nb: dancing ? "" : neighbour,
     zp: mode === "sleep" ? wallQ / 4 : 0,
     season: season, motion: motion,
-    night: night, mt: morningPlay.running ? tick - morningStart : -1
+    night: night, mt: morningPlay.running ? tick - morningStart : -1,
+    gt: greeting ? tick - greetStart : -1
   })
   readonly property string poseKey: scene.key
 

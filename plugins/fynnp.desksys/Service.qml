@@ -352,6 +352,10 @@ Item {
       else buddy.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
     }
   }
+  // Welcome back: the pet greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.desksys"; rect: place.rect; active: root.active && root.showPet && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.desksys"; touch: buddy.touch }
 
   PanelWindow {
     id: win
@@ -436,6 +440,9 @@ Item {
             season: seasonCal.season
             night: seasonCal.night
             morning: seasonCal.morning
+            greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             px: 2
             visible: root.showPet
             width: root.showPet ? 44 * px : 0

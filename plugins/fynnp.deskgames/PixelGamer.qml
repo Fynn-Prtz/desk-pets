@@ -2,6 +2,7 @@ import QtQuick
 import "Sprites.js" as Sprites
 import "PetFx.js" as PetFx
 import "PetSeason.js" as PetSeason
+import "PetLove.js" as PetLove
 
 // Pixel axolotl gamer (px 2 on the shared 44x38 pet canvas, docs/PETS.md):
 // big round head with pink frilly gills, chubby body, tail, mitten arms
@@ -47,8 +48,8 @@ Item {
 
   PetColors { id: colors }
 
-  readonly property bool moving: bop || fidget !== "" || touch.busy || landPlay.running || morningPlay.running
-  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
+  readonly property bool moving: bop || fidget !== "" || touch.busy || landPlay.running || morningPlay.running || greeting || loveRow
+  readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running || greeting)
   readonly property real wall: { var tick = gamer.clock; return (Date.now() % 100000000) / 1000 }
 
   // ---------- blinks (also the trophy's twinkle) ----------
@@ -123,6 +124,57 @@ Item {
     morningPlay.restart()
   }
 
+  // ---------- affection (PetMemory.qml in the card; rows from PetLove.js) ----------
+  // Level 1..5 (0 = off). After a pet: a game HUD: a row of life hearts in the top-left corner, filling up fast like a health refill; the newest one blinks
+  // right after a level-up. On hover (motion "full", at most every 30 s): level 3 perks up,
+  // level 4+ plays the wave from its welcome-back greeting.
+  property int affection: 0
+  property bool affectionUp: false
+  property real loveStart: 0
+  property double lastHello: 0
+  readonly property bool loveRow: loveShow.running && affection > 0 && motion !== "still"
+  readonly property real loveT: clock - loveStart
+  readonly property int loveShown: Math.max(0, Math.min(5, Math.floor((loveT - 0.4) / 0.15) + 1))
+  readonly property int loveFilled: affectionUp && Math.floor(clock * 4) % 2 === 0 ? affection - 1 : affection
+  Timer { id: loveShow; interval: 3400 }
+  Connections {
+    target: touch
+    function onSerialChanged() { if (touch.reaction === "pet" && gamer.affection > 0) { gamer.loveStart = gamer.clock; loveShow.restart() } }
+    function onHoveredChanged() { if (touch.hovered) gamer.hoverHello() }
+  }
+  function greetPart(from, to) {
+    fidget = ""; fidgetEnd.stop(); greetStart = clock - from
+    greetPlay.interval = Math.round((to - from) * 1000); greetPlay.restart()
+  }
+  function hoverHello() {
+    if (motion !== "full" || !active || affection < 3 || greeting || touch.reaction !== "" || touch.dragged) return
+    var now = Date.now()
+    if (now - lastHello < 30000) return
+    lastHello = now
+    if (affection >= 4) greetPart(1.4, 2.7); else greetPart(0, 0.4)
+  }
+  PixelSprite {
+    visible: gamer.loveRow && gamer.loveT >= 0.4
+    px: gamer.px
+    x: 0 * gamer.px
+    y: 0 * gamer.px
+    z: 5
+    opacity: gamer.loveT > 3.0 ? 0.5 : 1
+    palette: colors.base
+    rows: gamer.loveRow ? PetLove.row(["r.r", "rrr", ".r."], ["n.n", "nnn", ".n."], 5, gamer.loveFilled, gamer.loveShown, 1) : []
+  }
+
+  // ---------- welcome back (shared/PetGreet.qml bumps greetSerial) ----------
+  // "Player two has joined": jump with the pad held high, "1UP", then a wave.
+  property int greetSerial: 0
+  property real greetStart: 0
+  readonly property bool greeting: greetPlay.running
+  onGreetSerialChanged: if (motion !== "still" && active && !touch.dragged) {
+    fidget = ""; fidgetEnd.stop(); greetStart = clock; greetPlay.interval = 2700; greetPlay.restart()
+  }
+  onMotionChanged: if (motion === "still") greetPlay.stop()
+  Timer { id: greetPlay; interval: 2700 }
+
   PetTouch {
     id: touch
     gazing: chat.looking
@@ -157,7 +209,8 @@ Item {
     season: gamer.season,
     motion: gamer.motion,
     night: gamer.night,
-    morningT: morningPlay.running ? gamer.clock - gamer.morningStart : -1
+    morningT: morningPlay.running ? gamer.clock - gamer.morningStart : -1,
+    greetT: greetPlay.running ? gamer.clock - gamer.greetStart : -1
   }, PetFx, PetSeason)
 
   readonly property var fxPalettes: ({
