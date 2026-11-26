@@ -3,7 +3,7 @@ import "Sprites.js" as Sprites
 import "PetSeason.js" as PetSeason
 import "PetFx.js" as PetFx
 
-// Dachshund pet for the Desk Disk card (round 2; px 2 on a 44x38 cell
+// Dachshund pet for the Desk Disk card (v3 look; px 2 on a 44x38 cell
 // canvas; guide: docs/PETS.md). It digs and buries your data.
 //
 // Ladder (from the card's mood + util / rates):
@@ -327,8 +327,8 @@ Item {
       opacity: 0.75
       palette: pet.inkFx
       rows: index === 0 ? PetFx.zed : PetFx.zedSmall
-      cx: 24 + t * 7 + (index ? 2 : 0)
-      cy: 12 - t * 10
+      cx: 27 + t * 6 + (index ? 2 : 0)
+      cy: 10 - t * 9
     }
   }
 
@@ -374,7 +374,7 @@ Item {
     visible: pet.p.c === "bone" && !pet.reacting && pet.cyc < 0.8
     palette: pet.inkFx
     rows: PetFx.sparkle[pet.tick % 2]
-    cx: 1; cy: 14
+    cx: 28; cy: 11
   }
 
   // sniff puffs at the nose
@@ -413,8 +413,8 @@ Item {
         || (touch.dragged && index === 0)
       palette: pet.sweatFx
       rows: PetFx.sweat
-      cx: index === 0 ? 26 : 1
-      cy: (pet.frantic ? 12 : 8) + t * 7
+      cx: index === 0 ? 29 : 0
+      cy: (pet.frantic ? 10 : 5) + t * 7
       opacity: t < 0.8 ? 1 : 0
     }
   }
@@ -455,8 +455,8 @@ Item {
       visible: pet.petting && t > 0 && t < 1
       palette: pet.heartFx
       rows: index === 0 ? PetFx.heart : PetFx.heartSmall
-      cx: (index === 0 ? 27 : 2) + Math.round(Math.sin(t * 9))
-      cy: (index === 0 ? 8 : 6) - t * 7
+      cx: (index === 0 ? 29 : 1) + Math.round(Math.sin(t * 9))
+      cy: (index === 0 ? 6 : 4) - t * 6
     }
   }
 
@@ -466,28 +466,28 @@ Item {
     visible: pet.annoyed && pet.tick % 4 !== 3
     palette: pet.hotFx
     rows: PetFx.anger
-    cx: 26; cy: 3
+    cx: 28; cy: 1
   }
   FxSprite {
     px: pet.px
     visible: pet.annoyed && pet.beat % 2 === 1
     palette: pet.inkFx
     rows: Sprites.bark
-    cx: 0; cy: 4 + (pet.tick % 2)
+    cx: 0; cy: 2 + (pet.tick % 2)
   }
   FxSprite {
     px: pet.px
     visible: (touch.landing && pet.lt >= 0.25) || (pet.full && pet.strain > 0 && !pet.reacting)
     palette: pet.inkFx
     rows: PetFx.spiral[pet.tick % 2]
-    cx: 26; cy: 1
+    cx: 28; cy: 0
   }
   FxSprite {
     px: pet.px
     visible: touch.dragged
     palette: pet.hotFx
     rows: PetFx.bang
-    cx: 30; cy: 1 + (pet.tick % 2)
+    cx: 34; cy: 1 + (pet.tick % 2)
   }
 
   // landing dust

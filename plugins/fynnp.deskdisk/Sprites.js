@@ -1,10 +1,12 @@
 .pragma library
 
-// Dachshund pet for the Desk Disk card (round 2): 44x38 cells drawn at px 2.
-// A long sausage dog that digs and buries data: big round head turned to the
-// viewer (left), floppy ears, light muzzle, tan eyebrow dots, a long body
-// to the right on four stubby legs, a thin tail. Top-lit shading with the
-// shared PetColors keys (docs/PETS.md).
+// Dachshund pet for the Desk Disk card (v3): 44x38 cells drawn at px 2.
+// A long sausage dog that digs and buries data, drawn like the rest of the
+// cast: a big round puppy head turned to the viewer (left) with large
+// glinting eyes set wide apart, soft floppy ears that hug the cheeks, a
+// small light muzzle, tan eyebrow dots and blush; behind it the long LOW
+// body (belly almost on the floor) on four stubby paws, light chest, thin
+// tail. Top-lit shading with the shared PetColors keys (docs/PETS.md).
 //
 // Two memoised layers, each built once per distinct key:
 //   dog(key)    the dog itself (moves with hops / shakes)
@@ -139,22 +141,20 @@ function lit(base) {
 
 // ---------- face parts (left eye; the right one is mirrored) ----------
 var EYES = {
-  open:    [".ee.", "exee", "eeee", "eeee", ".ee."],
-  blink:   ["....", "....", "....", "eeee", "...."],
-  sleep:   ["....", "....", "e..e", ".ee.", "...."],
-  happy:   ["....", ".ee.", "e..e", "....", "...."],
-  squint:  ["e...", ".ee.", "...e", ".ee.", "e..."],
-  strain:  ["ee..", ".eee", "...e", ".eee", "ee.."],
-  dizzy:   [".eee", "e...", "e.ee", "e..e", ".ee."],
-  worried: ["....", ".ee.", "exee", "eeee", ".ee."],
-  wide:    [".ee.", "exxe", "exee", "eeee", ".ee."],
-  angry:   ["....", "eee.", "exee", "eeee", ".ee."]
+  open:    [".eee.", "exxee", "exeee", "eeeee", "eeexe", ".eee."],
+  blink:   [".....", ".....", ".....", "eeeee", ".....", "....."],
+  sleep:   [".....", ".....", ".....", "e...e", ".eee.", "....."],
+  happy:   [".....", ".....", ".eee.", "e...e", ".....", "....."],
+  squint:  [".....", "ee...", "..ee.", "....e", "..ee.", "ee..."],
+  strain:  ["ee...", "..ee.", "....e", "..ee.", "ee...", "....."],
+  dizzy:   [".eee.", "e...e", "e.e.e", "e.ee.", "e....", ".eee."],
+  worried: [".....", ".eee.", "exxee", "exeee", "eeeee", ".eee."],
+  wide:    [".lll.", "leeel", "lexel", "leeel", "leeel", ".lll."],
+  angry:   ["ee...", "..ee.", "eeeee", "exeee", "eeeee", ".eee."]
 }
-var ASYM = { squint: 1, strain: 1, dizzy: 1 }
+var ASYM = { squint: 1, strain: 1, dizzy: 1, angry: 1 }
 var BROWS = {
-  worried: ["..ee", "ee.."],
-  angry:   ["ee..", "..ee"],
-  strain:  ["ee..", "..ee"]
+  worried: ["...ee", "ee..."]
 }
 // Mouths sit under the nose, centred on the muzzle.
 var MOUTHS = {
@@ -232,86 +232,95 @@ function build(k) {
   var sq = o.sq, pose = o.pose
 
   // ---- geometry per pose ----
-  // head centre / radii, body polyline + radius, leg roots
-  var hcx = 14.5 + o.hx, hcy = 15.5 + o.hy + sq * 1.4
-  var hrx = 9.4 + sq * 0.7, hry = 7.6 - sq * 0.8
-  var body = [[21, 25.5 + sq * 0.4], [35, 25.5 + sq * 0.4]], br = 5.0, bsy = 1 - sq * 0.12
+  // head centre / radii, body polyline + radius (the long sausage), chest
+  // ellipse under the head (part of the body mask), leg roots
+  var hcx = 15 + o.hx, hcy = 15 + o.hy + sq * 1.4
+  var hrx = 10.6 + sq * 0.5, hry = 8.6 - sq * 0.6
+  var body = [[21, 27.6 + sq * 0.4], [36, 27.6 + sq * 0.4]], br = 4.6, bsy = 1 - sq * 0.1
+  var chest = [15.5, 28.2 + sq * 0.4, 6.2, 4.9]
   var footY = 34
-  var tailRoot = [39, 23 + sq]
+  var tailRoot = [40, 25.5 + sq]
   if (pose === "dig") {
-    hcy = 19.5 + o.hy; hcx = 14 + o.hx
-    body = [[21, 27], [35, 24]]
-    tailRoot = [39, 21.5]
+    // nose in the hole, rump in the air
+    hcy = 18.5 + o.hy; hcx = 14 + o.hx
+    body = [[20, 29], [36, 25.2]]
+    chest = [15, 29.4, 5.6, 4.4]
+    tailRoot = [40, 22.5]
   } else if (pose === "curl") {
-    hcx = 13 + o.hx; hcy = 21.5 + o.hy; hry = 7.2; hrx = 9.2
-    body = [[19, 26.5], [35, 26.5]]; br = 5.0; bsy = 0.92 - sq * 0.06
-    tailRoot = [39, 28]
+    // lying flat, chin on the paws
+    hcx = 14 + o.hx; hcy = 20.6 + o.hy; hry = 8.2; hrx = 10.6
+    body = [[20, 27.4], [35.5, 27.4]]; br = 5.0; bsy = 0.92 - sq * 0.06
+    chest = [16, 27.6, 5.5, 4.6]
+    tailRoot = [39.5, 27]
   } else if (pose === "dangle") {
     hcy = 13.5 + o.hy
-    body = [[21, 23], [35, 23]]
-    tailRoot = [39, 21]
-    footY = 36
+    // held by the scruff: the long rump sags
+    body = [[21, 25.4], [35.5, 27.6]]
+    chest = [15.5, 26, 6.2, 4.9]
+    tailRoot = [39.5, 26]
+    footY = 35
   }
   var bcy = (body[0][1] + body[1][1]) / 2
   function inBody(x, y) {
     // vertical squash about the body's centre line
     var yy = bcy + (y + 0.5 - bcy) / bsy - 0.5
-    return segDist(body, x, yy) <= br
+    return segDist(body, x, yy) <= br || inEllipse(x, yy, chest[0], chest[1], chest[2], chest[3])
   }
   function bodyYAt(x, top) {
     // the body's top/bottom edge row near column x (for leg roots)
     for (var y = 0; y < H; y++) if (inBody(x, top ? y : H - 1 - y)) return top ? y : H - 1 - y
-    return 25
+    return 27
   }
 
   // ---- tail (behind everything) ----
   var TAILS = {
-    up:   [[0, 0], [1.6, -3.6], [2.0, -7.6]],
-    wag1: [[0, 0], [1.2, -3.8], [0.6, -8.0]],
-    wag2: [[0, 0], [2.2, -3.2], [3.0, -7.0]],
-    down: [[0, 0], [2.2, 2.0], [2.8, 5.5]],
-    curl: [[0, 0], [2.5, 2.5], [0.5, 5.8], [-6, 6.6], [-12, 6.4]]
+    up:   [[0, 0], [1.8, -2.6], [1.6, -6.4]],
+    wag1: [[0, 0], [1.2, -3.0], [-0.2, -6.4]],
+    wag2: [[0, 0], [2.2, -2.2], [2.8, -5.8]],
+    down: [[0, 0], [2.0, 1.8], [2.2, 5.0]],
+    curl: [[0, 0], [2.5, 2.5], [0.5, 5.2], [-6, 6.0], [-12, 5.8]]
   }
   var tp = TAILS[o.tail] || TAILS.up
   var tpts = []
   for (var i = 0; i < tp.length; i++) tpts.push([tailRoot[0] + tp[i][0], tailRoot[1] + tp[i][1]])
   if (o.tail !== "curl")
-    layer(g, function(x, y) { return inTaper(tpts, x, y, 1.9, 0.75) }, lit("b"))
+    layer(g, function(x, y) { return inTaper(tpts, x, y, 1.7, 0.7) }, lit("b"))
 
   // ---- legs ----
   // each: [x centre, lift (cells up), forward reach]; far legs drawn first (shaded)
   var fl = { stand: 0, walk1: 0, walk2: 0, tap: 0 }
-  var near = [[18.5, 0, 0], [33.5, 0, 0]]     // front near, back near
-  var far = [[23.0, 0, 0], [37.5, 0, 0]]
+  var near = [[12.5, 0, 0], [33.0, 0, 0]]     // front near, back near
+  var far = [[18.5, 0, 0], [37.5, 0, 0]]
   var lg = o.legs
   if (lg === "walk1") { near[0][1] = 1; far[1][1] = 1 }
   if (lg === "walk2") { far[0][1] = 1; near[1][1] = 1 }
-  if (lg === "tap") near[0][1] = 2
+  if (lg === "tap") near[0][1] = 1
   if (lg === "stomp") near[0][1] = 1
   if (lg === "shake1") { near[0][0] -= 1; near[1][0] += 1 }
   if (lg === "shake2") { far[0][0] += 1; far[1][0] -= 1 }
-  if (lg === "scratch1") near[1] = [32.5, 5, -3]
-  if (lg === "scratch2") near[1] = [34.5, 6, -1]
+  if (lg === "scratch1") near[1] = [32.5, 2, -2]
+  if (lg === "scratch2") near[1] = [32.5, 3, -3]
   if (pose === "dig") {
-    near[0] = lg === "dig1" ? [15.5, 2, -2] : [17.5, 0, 0]
-    far[0] = lg === "dig1" ? [22.0, 0, 0] : [20.0, 2, -2]
+    near[0] = lg === "dig1" ? [11.5, 2, -3] : [13.0, 0, -1]
+    far[0] = lg === "dig1" ? [18.0, 0, -1] : [17.0, 2, -3]
     near[1] = [32.5, 0, 0]; far[1] = [37.0, 0, 0]
   }
   function legMask(list) {
     return function(x, y) {
       for (var i = 0; i < list.length; i++) {
         var L = list[i], cx = L[0]
-        var top = bodyYAt(Math.round(cx), false) - 2
+        var top = bodyYAt(Math.round(cx), false) - (list === near && !L[1] && !L[2] ? 0 : 2)
         var bot = footY - L[1]
         if (pose === "dangle") {
           var sway = (lg === "shake1" ? -1 : lg === "shake2" ? 1 : 0)
-          if (inTaper([[cx, top], [cx + sway, bot]], x, y, 1.7, 1.5)) return true
+          if (inTaper([[cx, top], [cx + sway, bot - 1]], x, y, 1.8, 1.5)) return true
+          if (inEllipse(x, y, cx + sway, bot - 0.6, 2.1, 1.5)) return true
           continue
         }
         var reach = L[2]
-        // leg + a rounded paw that pokes a little forward (left)
-        if (inTaper([[cx, top], [cx + reach, bot - 1]], x, y, 1.7, 1.5)) return true
-        if (inEllipse(x, y, cx + reach - 0.6, bot - 0.5, 2.3, 1.4)) return true
+        // a stubby leg + a round paw that pokes a little forward (left)
+        if (inTaper([[cx, top], [cx + reach, bot - 1]], x, y, 1.9, 1.6)) return true
+        if (inEllipse(x, y, cx + reach - 0.5, bot - 0.6, 2.6, 1.5)) return true
       }
       return false
     }
@@ -319,7 +328,6 @@ function build(k) {
   function legFill(shadeBase) {
     return function(x, y, inside) {
       if (!IN(inside, x, y + 1)) return "w"       // light toes
-      if (!IN(inside, x - 1, y) && shadeBase === "b") return "h"
       return shadeBase
     }
   }
@@ -327,11 +335,12 @@ function build(k) {
 
   // ---- body ----
   layer(g, inBody, function(x, y, inside) {
+    // light chest bib under the chin (tan markings), soft top light, shaded belly + rump
+    if (inEllipse(x, y, chest[0] - 0.5, chest[1] - 0.6, chest[2] - 2.6, chest[3] - 1.9)) return !inEllipse(x, y + 1, chest[0] - 0.5, chest[1] - 0.6, chest[2] - 2.6, chest[3] - 1.9) ? "w" : "l"
     if (!IN(inside, x, y - 1)) return "h"
     if (!IN(inside, x, y + 1)) return "n"
-    if (!IN(inside, x + 1, y) || !IN(inside, x + 2, y)) return "n"
-    // light chest / belly under the front
-    if (!IN(inside, x, y + 2) && x < body[0][0] + 5) return "w"
+    if (!IN(inside, x + 1, y) || (!IN(inside, x + 2, y) && x > body[1][0])) return "n"
+    if (!IN(inside, x, y + 2) && x > chest[0] + chest[2] - 1) return "n"
     return "b"
   })
 
@@ -345,40 +354,44 @@ function build(k) {
     for (var c = 0; c < cp.length; c++) cpts.push([tailRoot[0] + cp[c][0], tailRoot[1] + cp[c][1]])
     layer(g, function(x, y) { return inTaper(cpts, x, y, 2.0, 1.0) }, lit("b"))
     // tucked front paws under the chin
-    layer(g, function(x, y) { return inEllipse(x, y, 15.5, 30.5, 3.2, 1.6) || inEllipse(x, y, 20.5, 30.8, 3, 1.5) },
-      function(x, y, inside) { return !IN(inside, x, y - 1) ? "w" : "n" })
+    layer(g, function(x, y) { return inEllipse(x, y, 9.5, 31.2, 3.2, 1.6) || inEllipse(x, y, 20, 31.2, 3.2, 1.6) },
+      function(x, y, inside) { return !IN(inside, x, y + 1) ? "w" : "l" })
   }
 
   // ---- ears behind the head when flying up ----
   var flap = o.ears === "flap1" || o.ears === "flap2"
-  var earL, earR, er0 = 2.0, er1 = 3.0
+  var earL, earR, er0 = 1.7, er1 = 2.6
   var top = hcy - hry
-  var eo = 7.5      // ear root offset from the head centre
+  var eo = 7.2      // ear root offset from the head centre
+  var ex = hrx + 0.4   // how far out the ear hangs (it hugs the cheek)
   if (o.ears === "perk") {
-    earL = [[hcx - eo, top + 2], [hcx - 11, top + 4], [hcx - 12, top + 8.5]]
-    earR = [[hcx + eo, top + 2], [hcx + 11, top + 4], [hcx + 12, top + 8.5]]
+    // alert: lifted at the root, sticking out sideways
+    earL = [[hcx - eo, top + 1.2], [hcx - ex - 0.2, top + 3.2], [hcx - ex - 0.8, top + 9]]
+    earR = [[hcx + eo, top + 1.2], [hcx + ex + 0.2, top + 3.2], [hcx + ex + 0.8, top + 9]]
   } else if (o.ears === "down") {
-    earL = [[hcx - eo + 0.5, top + 3], [hcx - 10, top + 8], [hcx - 9.5, top + 14]]
-    earR = [[hcx + eo - 0.5, top + 3], [hcx + 10, top + 8], [hcx + 9.5, top + 14]]
+    earL = [[hcx - eo + 0.5, top + 3.4], [hcx - ex + 0.6, top + 8], [hcx - ex + 0.8, top + 14]]
+    earR = [[hcx + eo - 0.5, top + 3.4], [hcx + ex - 0.6, top + 8], [hcx + ex - 0.8, top + 14]]
   } else if (o.ears === "flap1") {
-    earL = [[hcx - eo, top + 2], [hcx - 10.5, top - 0.5], [hcx - 12, top - 3]]
-    earR = [[hcx + eo, top + 2], [hcx + 11, top + 3], [hcx + 13, top + 6]]
+    earL = [[hcx - eo, top + 2], [hcx - ex + 0.6, top - 0.5], [hcx - ex + 0.2, top - 3.2]]
+    earR = [[hcx + eo, top + 2], [hcx + ex + 0.2, top + 3], [hcx + ex + 0.8, top + 6.5]]
   } else if (o.ears === "flap2") {
-    earL = [[hcx - eo, top + 2], [hcx - 11, top + 3], [hcx - 13, top + 6]]
-    earR = [[hcx + eo, top + 2], [hcx + 10.5, top - 0.5], [hcx + 12, top - 3]]
+    earL = [[hcx - eo, top + 2], [hcx - ex - 0.2, top + 3], [hcx - ex - 0.8, top + 6.5]]
+    earR = [[hcx + eo, top + 2], [hcx + ex - 0.6, top - 0.5], [hcx + ex - 0.2, top - 3.2]]
   } else {   // flop
-    earL = [[hcx - eo, top + 2], [hcx - 10.8, top + 5.5], [hcx - 11, top + 11.5]]
-    earR = [[hcx + eo, top + 2], [hcx + 10.8, top + 5.5], [hcx + 11, top + 11.5]]
+    earL = [[hcx - eo, top + 2.2], [hcx - ex, top + 5.6], [hcx - ex - 0.2, top + 12]]
+    earR = [[hcx + eo, top + 2.2], [hcx + ex, top + 5.6], [hcx + ex + 0.2, top + 12]]
   }
   function earMask(x, y) { return inTaper(earL, x, y, er0, er1) || inTaper(earR, x, y, er0, er1) }
   function earFill(x, y, inside) {
-    if (!IN(inside, x, y - 1) || !IN(inside, x - 1, y)) return "n"
-    return "d"
+    // soft darker ears: lit on the top fold, deep shade at the hanging tip
+    if (!IN(inside, x, y - 1)) return "b"
+    if (!IN(inside, x, y + 1) || !IN(inside, x, y + 2)) return "d"
+    return "n"
   }
   if (flap) layer(g, earMask, earFill)
 
   // ---- head ----
-  layer(g, function(x, y) { return inSuper(x, y, hcx, hcy, hrx, hry, 2.1) }, function(x, y, inside) {
+  layer(g, function(x, y) { return inSuper(x, y, hcx, hcy, hrx, hry, 2.2) }, function(x, y, inside) {
     if (!IN(inside, x, y - 1)) return "h"
     if (!IN(inside, x, y - 2) && x < hcx + 3) return "h"
     if (!IN(inside, x, y + 1)) return "n"
@@ -387,39 +400,42 @@ function build(k) {
   })
   // forehead gloss
   var ht = Math.ceil(hcy - hry)
-  putIf(g, Math.round(hcx) - 4, ht + 2, "l", "hb"); putIf(g, Math.round(hcx) - 3, ht + 2, "l", "hb")
-  putIf(g, Math.round(hcx) - 5, ht + 3, "h", "b")
+  putIf(g, Math.round(hcx) - 5, ht + 2, "l", "hb"); putIf(g, Math.round(hcx) - 4, ht + 2, "l", "hb")
+  putIf(g, Math.round(hcx) - 6, ht + 3, "h", "b")
 
-  // muzzle: a light rounded snout low on the face
-  var mcy = hcy + 3.6 - sq * 0.3, mcx = hcx + 0.5
-  layer(g, function(x, y) { return inSuper(x, y, mcx, mcy, 4.6, 2.9 - sq * 0.2, 2.2) }, function(x, y, inside) {
-    if (!IN(inside, x, y + 1)) return "w"
-    if (!IN(inside, x, y - 1)) return "l"
-    return "l"
-  }, "n")
+  // muzzle: a small light snout low on the face (no outline: it must not
+  // crowd the eyes), a shade under it for the chin
+  var mcy = hcy + 4.5 - sq * 0.4, mcx = hcx
+  for (var my = 0; my < H; my++)
+    for (var mx = 0; mx < W; mx++) {
+      if (!inSuper(mx, my, mcx, mcy, 4.4, 3.0 - sq * 0.2, 2.2)) continue
+      putIf(g, mx, my, inSuper(mx, my + 1, mcx, mcy, 4.4, 3.0 - sq * 0.2, 2.2) ? "l" : "w", "hbn")
+    }
 
   // ---- face ----
-  var eyeTop = Math.round(hcy - 4.5 + sq * 0.4) + o.ly
-  var exL = Math.round(hcx) - 7 + o.lx, exR = Math.round(hcx) + 2 + o.lx
+  var eyeTop = Math.round(hcy - 3.6 + sq * 0.2) + o.ly
+  var exL = Math.round(hcx) - 8 + o.lx, exR = Math.round(hcx) + 3 + o.lx
   var e = EYES[o.eyes] || EYES.open
   stamp(g, e, exL, eyeTop, false)
   stamp(g, e, exR, eyeTop, !!ASYM[o.eyes])
   var brow = BROWS[o.eyes]
   if (brow) {
-    stamp(g, brow, exL, eyeTop - 2, false)
-    stamp(g, brow, exR, eyeTop - 2, true)
-  } else {
+    stamp(g, brow, exL, eyeTop - 1, false)
+    stamp(g, brow, exR, eyeTop - 1, true)
+  } else if (o.eyes !== "angry") {
     // tan eyebrow dots (black-and-tan dachshund)
     put(g, exL + 2, eyeTop - 2, "w"); put(g, exL + 3, eyeTop - 2, "w")
-    put(g, exR, eyeTop - 2, "w"); put(g, exR + 1, eyeTop - 2, "w")
+    put(g, exR + 1, eyeTop - 2, "w"); put(g, exR + 2, eyeTop - 2, "w")
   }
   if (o.blush) {
     var bc = o.blush === 2 ? "r" : "p"
-    var by = eyeTop + 5
-    put(g, exL - 1, by, bc); put(g, exL, by, bc); put(g, exL + 1, by, bc)
-    put(g, exR + 2, by, bc); put(g, exR + 3, by, bc); put(g, exR + 4, by, bc)
+    var by = Math.round(hcy - 3.6 + sq * 0.2) + 6
+    for (var bi2 = 0; bi2 < 3; bi2++) {
+      putIf(g, Math.round(hcx) - 9 + bi2, by, bc, "hbn"); putIf(g, Math.round(hcx) + 6 + bi2, by, bc, "hbn")
+    }
+    putIf(g, Math.round(hcx) - 8, by + 1, bc, "hbn"); putIf(g, Math.round(hcx) + 7, by + 1, bc, "hbn")
   }
-  var noseY = Math.round(mcy - 2.2)
+  var noseY = Math.round(mcy - 2.6)
   var nx = Math.round(mcx) - 2
   stamp(g, o.mouth === "sniff" ? NOSE_SNIFF : NOSE, nx, noseY, false)
   if (!o.carry) {
