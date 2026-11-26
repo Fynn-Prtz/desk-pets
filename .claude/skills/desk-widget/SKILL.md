@@ -2,7 +2,7 @@
 name: desk-widget
 description: >
   Use when the user wants a new desktop widget/card, screensaver, or pixel-art buddy for their Omarchy
-  desktop, or wants to change the existing desk cards (fynnp.desksys, fynnp.deskmem, fynnp.deskdisk, fynnp.desknet, fynnp.deskaudio, fynnp.deskgames,
+  desktop, or wants to change the existing desk cards (fynnp.desksys, fynnp.deskmem, fynnp.deskdisk, fynnp.desknet, fynnp.deskclock, fynnp.deskaudio, fynnp.deskgames,
   fynnp.catsaver, fynnp.desklayout). Triggers: "widget", "desk card", "desktop card", "pixel buddy",
   "screensaver", "another card like the audio one", "on my desktop", "move/place widgets".
   Holds the architecture, reusable components, style rules, performance rules, gotchas and the QA
@@ -25,6 +25,7 @@ must be indistinguishable from the others. The user's priorities: **looks matchi
 | `fynnp.deskmem` | per-app RAM pie (CellGrid cells), legend | — (pie in the buddy slot) | Rust feed `deskmem-feed`, interval 3000 |
 | `fynnp.deskdisk` | filesystems, usage meters, mirrored I/O history | PixelDisk (floppy) | Rust feed `deskdisk-feed`; CellGrid has `down` for mirrored graphs |
 | `fynnp.desknet` | default iface + IPv4, ↓/↑ rates, history, totals | PixelRouter | Rust feed `desknet-feed` |
+| `fynnp.deskclock` | time, date, day/week/year progress, uptime | PixelOwl (owl + pocket watch) | no helper: minute-boundary Timer gated on `active`, `/proc/uptime` read once/hourly |
 | `fynnp.deskaudio` | now playing, visualizer, in/out devices, app mixer | PixelCat (dances) | interactive; the original style reference |
 | `fynnp.desksys` | CPU/GPU/RAM/VRAM load, temps, watts, history | PixelBuddy (computer) | **best template** for a read-only card; Rust feed `~/.local/bin/desksys-feed` (src `helpers/desksys-feed`) |
 | `fynnp.deskgames` | Steam recently played, launch, last session report | PixelGamer (gamepad) | Rust inotify feed in `helper/`, `bin/deskgames-feed` |

@@ -1,0 +1,20 @@
+{
+  "dateFormat": "{weekday}, {day}. {month}",
+  "mon": "Montag", "tue": "Dienstag", "wed": "Mittwoch", "thu": "Donnerstag", "fri": "Freitag", "sat": "Samstag", "sun": "Sonntag",
+  "short": "So,Mo,Di,Mi,Do,Fr,Sa",
+  "jan": "Januar", "feb": "Februar", "mar": "März", "apr": "April", "may": "Mai", "jun": "Juni",
+  "jul": "Juli", "aug": "August", "sep": "September", "oct": "Oktober", "nov": "November", "dec": "Dezember",
+  "awake": "Nächstes Schuhu um {time}",
+  "drowsy": "Wird langsam müde",
+  "asleep": "Schläft bis {time}",
+  "hooting": "Schuhu! Es ist {time}",
+  "day": "Tag",
+  "week": "Woche {n}",
+  "dayOf": "Tag {n} von {total}",
+  "left": "noch {time}",
+  "uptime": "Laufzeit",
+  "since": "seit {when}",
+  "d": "T",
+  "h": "Std",
+  "min": "Min"
+}

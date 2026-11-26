@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # desk-pets installer for Omarchy (Hyprland + omarchy-shell / Quickshell).
 #
-#   ./install.sh                 core: system, memory, disk, audio, games, net cards, layout mode, cat screensaver plugin
+#   ./install.sh                 core: system, memory, disk, audio, games, net, clock cards, layout mode, cat screensaver plugin
 #   ./install.sh --sessions      + MangoHud game-session reports (MangoHud config, Steam launcher, systemd units)
 #   ./install.sh --rapl          + CPU package watts (udev rule, needs sudo; see README for the trade-off)
 #   ./install.sh --screensaver   + replace Omarchy's terminal screensaver with the pixel cat
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGINS=(fynnp.desksys fynnp.deskmem fynnp.deskdisk fynnp.deskaudio fynnp.deskgames fynnp.desknet fynnp.desklayout fynnp.catsaver)
+PLUGINS=(fynnp.desksys fynnp.deskmem fynnp.deskdisk fynnp.deskaudio fynnp.deskgames fynnp.desknet fynnp.deskclock fynnp.desklayout fynnp.catsaver)
 PLUGIN_DIR="$HOME/.config/omarchy/plugins"
 SHELL_JSON="$HOME/.config/omarchy/shell.json"
 HYPR="$HOME/.config/hypr"
@@ -102,6 +102,7 @@ defaults='[
   { "id": "fynnp.deskaudio",  "corner": "bottom-right", "marginX": 32, "marginY": 32, "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.deskgames",  "corner": "center-right", "marginX": 32, "marginY": 0,  "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.desknet",    "corner": "bottom-left",  "marginX": 32, "marginY": 32, "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000 },
+  { "id": "fynnp.deskclock",  "corner": "top-right",    "marginX": 408, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "clock24": true, "hoot": "count", "nightFrom": 23, "nightTo": 7 },
   { "id": "fynnp.desklayout", "grid": 24 },
   { "id": "fynnp.catsaver",   "timeout": 150, "fps": 8 }
 ]'
@@ -123,7 +124,7 @@ append_once() { # <file> <marker> <text>
   printf '\n%s\n' "$3" >> "$1"
 }
 say "adding blur rules and the SUPER+ALT+E layout hotkey"
-for ns in desksys deskmem deskdisk deskaudio deskgames desknet; do
+for ns in desksys deskmem deskdisk deskaudio deskgames desknet deskclock; do
   append_once "$HYPR/looknfeel.lua" "^fynnp-$ns\$" \
     "-- desk-pets: frosted glass behind fynnp.$ns
 hl.layer_rule({ match = { namespace = \"^fynnp-$ns\$\" }, blur = true, ignore_alpha = 0.1 })"

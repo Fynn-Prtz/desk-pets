@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "fynnp.deskclock",
+  "name": "Desk Clock",
+  "version": "1.0.0",
+  "author": "fynnp",
+  "description": "Always-on desktop clock card: time, date, day / week / year progress and uptime with a little pixel owl that hoots on the hour",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
