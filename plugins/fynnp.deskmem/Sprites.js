@@ -1,7 +1,9 @@
 .pragma library
 
-// Hamster for the memory card: a chubby fluffball that hoards RAM in its
-// cheek pouches. 44 x 38 cells, drawn at px 2 (see docs/PETS.md).
+// Hamster for the memory card: a round fluffball with a big head, big glinting
+// eyes set wide and low, cream muzzle and belly, small pink-lined ears, a
+// cowlick and strong blush. It hoards RAM in round balloon cheek pouches.
+// 44 x 38 cells, drawn at px 2 (see docs/PETS.md).
 //
 // Built from shape functions (ellipses, each layer ringed with its own
 // outline, top-lit shading) like the screensaver cat, then kept as string
@@ -46,28 +48,39 @@ var seed = [
   "ee"
 ]
 
-// Arms over the light belly, contoured in shade ("n") because the outline
-// colour would vanish on light fur. Left side; the right arm is the mirror.
-var ARM_DOWN = [      // resting on the tummy, hands together (x 14.., y 22..)
-  "bnn....",
-  "bbbnnp.",
-  "nbbbbpp",
-  ".nnnnn."
+// Tiny pink paws. Resting: two stubs held together on the chest (left side,
+// the right one is the mirror). Raised: paws up at the chin holding an item.
+var PAW_REST = [
+  "bb...",
+  "nbbpp",
+  ".nnpp"
 ]
-var ARM_HOLD = [      // raised to the mouth (x 15.., y 19..)
-  ".....pp",
-  "....bpp",
-  "..nbbn.",
-  ".nbbn..",
-  "nbbn...",
-  "bnn...."
+var PAW_UP = [
+  "..pp",
+  ".bpp",
+  "bbn.",
+  "bn.."
+]
+// A paw on the face or a pouch: furry arm end with a pink pad.
+var PAW = [
+  ".bb.",
+  "bppb",
+  "bppn",
+  ".nn."
+]
+// Cowlick on top of the head; the bottom row sits on the head's first row.
+var TUFT = [
+  "...o.o",
+  "..o.o.",
+  ".ohoh.",
+  "..hh.."
 ]
 // A paw on the face or a pouch.
 var PAW = [
-  ".oo.",
-  "ohpo",
-  "oppo",
-  ".oo."
+  ".nn.",
+  "nppn",
+  "nppn",
+  ".nn."
 ]
 
 // ---------- grid helpers ----------
@@ -99,7 +112,10 @@ function inE(x, y, cx, cy, rx, ry) { return ell(sx(x), sy(y), cx, cy, rx, ry) <=
 
 // Fill a mask and ring it with outline cells (8-neighbourhood) that are not
 // part of it. Rows at or below `floorY` are clipped (the pet stands on it).
-function layer(g, mask, fill, floorY) {
+// soft: outline cells that land on fur already drawn become a shade crease
+// ("n") instead of the light outline, so a pouch does not draw a hard ring
+// across the face.
+function layer(g, mask, fill, floorY, soft) {
   var inside = []
   for (var y = 0; y < H; y++) {
     var r = []
@@ -116,7 +132,7 @@ function layer(g, mask, fill, floorY) {
           var yy = y2 + dy, xx = x2 + dx
           if (yy >= 0 && yy < H && xx >= 0 && xx < W && inside[yy][xx]) edge = true
         }
-      if (edge) g[y2][x2] = "o"
+      if (edge) g[y2][x2] = soft && g[y2][x2] !== "." && g[y2][x2] !== "o" && g[y2][x2] !== "t" ? "n" : "o"
     }
   }
   return inside
@@ -149,28 +165,32 @@ function shade(base, hiX) {
 }
 
 // ---------- eyes ----------
-// Left eye patterns, 4 wide, bottom-aligned on row 15 (eye body 12..15, brows
-// above); the right eye is the mirror. "x" is the glint.
+// Left eye patterns, 5 wide, bottom-aligned on row EYE_Y; the right eye is
+// the mirror. Big glossy eyes set wide and low: "x" is the glint.
+var EYE_Y = 18
+var EYE_X = 12
 var EYES = {
-  open:    ["....", ".ee.", "exee", "eeee", ".ee."],
-  blink:   ["....", "....", "....", "eeee", "...."],
-  sleep:   ["....", "....", "....", "e..e", ".ee."],
-  happy:   ["....", "....", ".ee.", "e..e", "...."],
-  squint:  ["....", "ee..", "..ee", "ee..", "...."],
-  strain:  ["e...", ".ee.", "ee..", "..ee", "ee.."],
-  dizzy:   ["....", "e..e", ".ee.", ".ee.", "e..e"],
-  worried: ["..ee", "ee..", "....", ".ee.", "exee", ".ee."],
-  wide:    ["....", ".ll.", "leel", "leel", ".ll."],
-  angry:   ["ee..", "..ee", "....", "eeee", "exee", ".ee."]
+  open:    [".eee.", "exxee", "exxee", "eeeee", "eeexe", ".eee."],
+  blink:   [".....", ".....", ".....", "eeeee", "....."],
+  sleep:   [".....", ".....", ".....", "e...e", ".eee."],
+  happy:   [".....", ".eee.", "e...e", ".....", "....."],
+  squint:  ["e....", ".ee..", "...ee", ".ee..", "e...."],
+  strain:  ["ee...", "..ee.", "....e", "..ee.", "ee..."],
+  dizzy:   ["e...e", ".e.e.", "..e..", ".e.e.", "e...e"],
+  worried: ["...ee", ".ee..", ".eee.", "exxee", "exxee", "eeeee", ".eee."],
+  wide:    [".lll.", "leeel", "lexel", "leeel", ".lll."],
+  angry:   ["ee...", "..ee.", "eeeee", "exxee", "eeexe", ".eee."]
 }
 
-function drawEyes(g, kind, lx, ly) {
+function drawEyes(g, kind, lx, ly, up) {
   var pat = EYES[kind] || EYES.open
-  var moves = kind === "open" || kind === "wide" || kind === "worried"
+  var moves = kind === "open" || kind === "wide" || kind === "worried" || kind === "angry"
   var dx = moves ? lx : 0, dy = moves ? ly : 0
-  var ey = fwdY(15) - pat.length + 1 + dy
-  stamp(g, pat, fwdX(14) + dx, ey, false)
-  stamp(g, pat, fwdX(29) - 3 + dx, ey, true)
+  var ey = fwdY(EYE_Y) - pat.length + 1 + dy - up
+  var w = pat[0].length
+  var x0 = fwdX(EYE_X)
+  stamp(g, pat, x0 + dx, ey, false)
+  stamp(g, pat, 43 - x0 - (w - 1) + dx, ey, true)
 }
 
 // ---------- mouths ----------
@@ -178,13 +198,22 @@ function drawEyes(g, kind, lx, ly) {
 var MOUTHS = {
   omega:  ["e.ee.e", ".e..e."],
   smile:  [".e..e.", "..ee.."],
-  open:   [".elle.", ".eppe.", "..ee.."],
+  open:   [".eeee.", ".eppe.", "..ee.."],
   teeth:  ["eeeeee", "elelle", "eeeeee"],
-  wobbly: ["......", ".e.e.e", "e.e.e."],
+  wobbly: [".e.e.e", "e.e.e."],
   pout:   ["..ee..", ".e..e."],
   chew:   ["..ee..", "..ll.."],
   chew2:  ["e.ee.e", ".e..e."],
   none:   ["..ee.."]
+}
+
+// Stamp a left-side pattern and its mirror (axis between cells 21 and 22),
+// positions given in rest space.
+function pair(g, rows, x, y) {
+  var w = rows[0].length
+  var fx = fwdX(x)
+  stamp(g, rows, fx, y, false)
+  stamp(g, rows, 43 - fx - (w - 1), y, true)
 }
 
 // ---------- frame ----------
@@ -193,70 +222,92 @@ function build(o) {
   var g = grid()
   var pose = o.pose
   SX = 1; SY = 1
-  if (pose === "squish") { SX = 1.16; SY = 0.74 }
-  else if (pose === "plop") { SX = 1.22; SY = 0.68 }
-  else if (pose === "wiggle") { SX = 1.06; SY = 0.95 }
-  else if (pose === "dangle") { SX = 0.93; SY = 1.04 }
-  else if (o.pile >= 3) { SX = 1.05; SY = 0.86 }   // squashed under the hoard
-  else if (o.pile === 2) { SX = 1.04; SY = 0.9 }
-  else if (o.pile === 1) { SX = 1.02; SY = 0.95 }
+  if (pose === "squish") { SX = 1.14; SY = 0.76 }
+  else if (pose === "plop") { SX = 1.18; SY = 0.7 }
+  else if (pose === "wiggle") { SX = 1.05; SY = 0.95 }
+  else if (pose === "dangle") { SX = 0.94; SY = 1.03 }
+  else if (o.pile >= 3) { SX = 1.03; SY = 0.86 }   // squashed under the hoard
+  else if (o.pile === 2) { SX = 1.02; SY = 0.9 }
+  else if (o.pile === 1) { SX = 1.01; SY = 0.95 }
 
   var ball = pose === "ball"
   var dangle = pose === "dangle"
   var c = ball ? 0 : o.cheek
   var breath = o.breath ? 1 : 0
 
-  // One fluffball: head and body overlap without a seam.
-  // Asleep it is a single round ball whose top rises one cell per breath.
-  var hcy = ball ? 25.7 - breath * 0.5 : 15.8
-  var hrx = ball ? 14.2 : 11.6, hry = ball ? 9.6 + breath * 0.5 : 9.4
-  var bcy = ball ? hcy : 26.8
-  var brx = ball ? hrx : 13.0, bry = ball ? hry : 8.6
+  // A dominant round head over a small round body, no seam. Asleep it is one
+  // fluffy ball whose top rises a little per breath.
+  var hcy = ball ? 24.9 - breath * 0.5 : 15.4
+  var hrx = ball ? 13.8 : 14.6, hry = ball ? 10.4 + breath * 0.5 : 11.2
+  var bcy = ball ? hcy : 28.8
+  var brx = ball ? hrx : 11.0, bry = ball ? hry : 6.4
+  var headTop = hcy - hry
 
-  // Feet (pink soles), dangling feet hang lower and closer.
+  // Pouch geometry (also used by the paws holding them).
+  var pof = 9.6 + c * 0.75, pr = 4.0 + c * 0.75
+  var pcx = pof, pcy = 22.6 + c * 0.15, prx = pr, pry = pr * 0.92
+
+  // Feet: pink soles peeking out under the body; dangling feet hang lower.
   if (!ball) {
-    var fy = dangle ? 34.0 : 33.8, frx = dangle ? 2.0 : 2.8, fry = dangle ? 2.0 : 1.5
-    var fx1 = dangle ? 17.2 : 16.0, fx2 = dangle ? 26.8 : 28.0
+    var fy = dangle ? 34.2 : 34.2, frx = dangle ? 1.8 : 2.4, fry = dangle ? 1.8 : 1.3
+    var fx1 = dangle ? 17.6 : 16.4
     layer(g, function(x, y) {
-      return inE(x, y, fx1, fy, frx, fry) || inE(x, y, fx2, fy, frx, fry)
+      return inE(x, y, fx1, fy, frx, fry) || inE(x, y, 44 - fx1, fy, frx, fry)
     }, function(x, y) { return y >= fwdY(34) ? "p" : "w" }, FLOOR)
   }
 
-  // Ears (before the body, whose outline closes their base).
-  var eary = ball ? hcy - hry + 1.4 : hcy - 7.6
-  var earx = ball ? 7.6 : 8.0
-  var earR = ball ? 2.4 : 3.0
+  // Small round ears, half behind the head, pink insides.
+  var eary = ball ? hcy - hry + 1.6 : headTop + 1.8
+  var earx = ball ? 9.0 : 10.0
+  var earR = ball ? 2.8 : 3.5
   layer(g, function(x, y) {
     return inE(x, y, CX - earx, eary, earR, earR) || inE(x, y, CX + earx, eary, earR, earR)
   }, function(x, y) {
-    if (inE(x, y, CX - earx + 0.3, eary + 0.5, earR - 1.2, earR - 1.2)
-        || inE(x, y, CX + earx - 0.3, eary + 0.5, earR - 1.2, earR - 1.2)) return "p"
+    var ir = earR - 1.3
+    if (inE(x, y, CX - earx + 0.4, eary + 0.4, ir, ir) || inE(x, y, CX + earx - 0.4, eary + 0.4, ir, ir)) return "p"
     return "b"
   }, FLOOR)
 
-  // Body: accent back, light underside from the muzzle down (golden-hamster
-  // bib), top-lit rim, shade along the bottom and the flanks.
-  var bibCy = ball ? 33.4 : 25.4, bibRx = ball ? 10.0 : 8.6, bibRy = ball ? 5.6 : 9.6
+  // Fur tufts: little bumps where the cheeks are widest. At pouch size 1 the
+  // cheeks themselves bulge out (no own outline yet).
+  function fluff(x, y) {
+    if (ball) return inE(x, y, CX - 15.6, hcy + 2.4, 1.4, 1.1) || inE(x, y, CX + 15.6, hcy + 2.4, 1.4, 1.1)
+    var bump = inE(x, y, CX - 14.8, 20.6, 1.5, 1.4) || inE(x, y, CX + 14.8, 20.6, 1.5, 1.4)
+    if (c === 1) bump = bump || inE(x, y, CX - pcx, pcy, prx + 0.6, pry + 0.4) || inE(x, y, CX + pcx, pcy, prx + 0.6, pry + 0.4)
+    return bump
+  }
+
+  // Cream face (muzzle and lower cheeks) and belly.
+  var mcy = ball ? hcy + 3.2 : 20.6
+  function cream(x, y) {
+    if (ball) return inE(x, y, CX, mcy, 6.2, 3.6) || inE(x, y, CX, hcy + 9.0, 12.5, 5.2)
+    return inE(x, y, CX, mcy, 6.0, 3.9)
+      || inE(x, y, CX - 8.4, 23.2, 6.0, 3.2) || inE(x, y, CX + 8.4, 23.2, 6.0, 3.2)
+      || inE(x, y, CX, 28.4, 8.4, 7.0)
+  }
+
+  // Head + body: accent back, top-lit rim, cream underside, shaded flanks.
   layer(g, function(x, y) {
-    return inE(x, y, CX, hcy, hrx, hry) || inE(x, y, CX, bcy, brx, bry)
+    return inE(x, y, CX, hcy, hrx, hry) || inE(x, y, CX, bcy, brx, bry) || fluff(x, y)
   }, function(x, y, inside) {
     var top = !isIn(inside, x, y - 1)
-    var bottom = !isIn(inside, x, y + 1) || !isIn(inside, x, y + 2)
+    var bottom = !isIn(inside, x, y + 1)
+    var low = bottom || !isIn(inside, x, y + 2)
     var side = !isIn(inside, x - 1, y) || !isIn(inside, x + 1, y)
-    var bib = inE(x, y, CX, bibCy, bibRx, bibRy)
-      || (!ball && (inE(x, y, CX - 6.4, hcy + 4.2, 3.6, 2.8) || inE(x, y, CX + 6.4, hcy + 4.2, 3.6, 2.8)))
-    if (top) return x < CX + 6 ? "h" : "b"
-    if (bib) return bottom ? "n" : (!ball && y < fwdY(hcy + 3.4) && x < CX + 3) ? "l" : "w"
-    if (bottom) return "n"
-    if (side && y > fwdY(hcy)) return "n"
-    if (!isIn(inside, x, y - 2) && x < CX + 3) return "h"
+    if (top) return x < CX + 7 ? "h" : "b"
+    if (cream(x, y)) {
+      if (low) return "n"
+      if (inE(x, y, CX, mcy - 0.6, 4.6, 2.6)) return "l"
+      return "w"
+    }
+    if (low) return "n"
+    if (side && sy(y) > hcy + 1) return "n"
+    if (!isIn(inside, x, y - 2) && x < CX + 4) return "h"
     return "b"
   }, FLOOR)
 
-  // Cheek pouches: round balloons with their own outline, so a stuffed
-  // hamster really bulges. Small ones stay soft (no outline across the face).
-  var pcx = 7.8 + c * 0.8, pcy = 19.4 + c * 0.2
-  var prx = 3.0 + c * 0.8, pry = 2.8 + c * 0.85
+  // Cheek pouches: round cream balloons with their own outline, a tight
+  // shine and the blush riding on them.
   if (c >= 2) {
     layer(g, function(x, y) {
       return inE(x, y, CX - pcx, pcy, prx, pry) || inE(x, y, CX + pcx, pcy, prx, pry)
@@ -264,80 +315,83 @@ function build(o) {
       var pc = x < CX ? CX - pcx : CX + pcx
       var out = x < CX ? -1 : 1
       if (!isIn(inside, x, y + 1)) return "n"
-      // Tight shine on the upper outer side: stretched-skin look.
-      if (inE(x, y, pc + out * prx * 0.35, pcy - pry * 0.5, Math.max(0.9, prx * 0.22), Math.max(0.7, pry * 0.14))) return "l"
+      if (inE(x, y, pc + out * prx * 0.36, pcy - pry * 0.5, Math.max(1.0, prx * 0.24), Math.max(0.8, pry * 0.16))) return "l"
       if (!isIn(inside, x, y - 1)) return "h"
-      // Flushed: hatched red blush strokes across the middle of the pouch.
-      if (o.flush && inE(x, y, pc + out * 0.4, pcy + pry * 0.15, prx * 0.62, pry * 0.32))
-        return (x * out + y) % 3 === 0 ? "r" : "p"
-      if (sy(y) < pcy - pry * 0.1) return "b"
+      // Blush across the middle of the pouch, hatched red when flushed.
+      if (inE(x, y, pc + out * 0.3, pcy + pry * 0.1, Math.max(1.6, prx * 0.4), Math.max(1.0, pry * 0.22)))
+        return o.flush ? ((x * out + y) % 3 === 0 ? "r" : "p") : "p"
       if (!isIn(inside, x, y + 2)) return "n"
       return "w"
-    }, FLOOR)
+    }, FLOOR, true)
   }
 
-  // Tiny forehead stripe.
-  if (!ball) {
-    var ty = fwdY(hcy - hry) + 2
-    putIf(g, 21, ty, "d", "bh"); putIf(g, 22, ty, "d", "bh")
-    putIf(g, 21, ty + 1, "n", "bh"); putIf(g, 22, ty + 1, "n", "bh")
+  // A little cowlick of hair on top.
+  if (!(o.pile > 0)) {
+    var tt = fwdY(headTop) + (ball ? 1 : 0)
+    stamp(g, TUFT, fwdX(19), tt - TUFT.length + 1, false)
   }
 
   // Face.
   var lx = o.look ? o.look[0] : 0, ly = o.look ? o.look[1] : 0
   if (ball) {
-    // Asleep in a ball: closed eyes, a pink nose, blush, paws tucked in.
-    stamp(g, EYES.sleep, 14, 21, false)
-    stamp(g, EYES.sleep, 26, 21, true)
-    put(g, 12, 26, "p"); put(g, 13, 26, "p"); put(g, 30, 26, "p"); put(g, 31, 26, "p")
-    put(g, 21, 27, "p"); put(g, 22, 27, "p")
-    stamp(g, MOUTHS.omega, 19, 28, false)
-    stamp(g, ["pp....pp", "nn....nn"], 18, 31, false)
+    var fyb = fwdY(hcy + 1.6)
+    pair(g, EYES.sleep.slice(3), 12, fyb)
+    pair(g, ["ppp", ".p."], 9, fyb + 2)
+    put(g, 21, fyb + 2, "p"); put(g, 22, fyb + 2, "p")
+    stamp(g, MOUTHS.omega, 19, fyb + 3, false)
+    pair(g, ["pp", "nn"], 16, fwdY(32))
   } else {
-    drawEyes(g, o.eyes, lx, ly)
-    // Blush under the eyes (urgent red when flushed).
-    var by = fwdY(16) + 1
-    var blush = o.flush ? "r" : "p"
-    var bl = [fwdX(12), fwdX(13), fwdX(30), fwdX(31)]
-    for (var i = 0; i < bl.length; i++) putIf(g, bl[i], by, blush, "bwhnlk")
-    // Nose (sniff: one cell up) and buck-tooth mouth.
-    var ny = fwdY(18) + (o.nose ? -1 : 0)
+    var up = c >= 4 ? 1 : 0
+    drawEyes(g, o.eyes, lx, ly, up)
+    // Blush under the eyes (urgent red when flushed); on the pouches once
+    // they have their own outline.
+    if (c < 2) {
+      var by = fwdY(19)
+      var blush = o.flush ? "r" : "p"
+      for (var bx = 0; bx < 3; bx++) {
+        putIf(g, fwdX(10 + bx), by, blush, "bwhnlk")
+        putIf(g, 43 - fwdX(10 + bx), by, blush, "bwhnlk")
+        if (bx > 0) { putIf(g, fwdX(9 + bx), by + 1, blush, "bwhnlk"); putIf(g, 43 - fwdX(9 + bx), by + 1, blush, "bwhnlk") }
+      }
+    }
+    // Nose (sniff: one cell up) and the little mouth.
+    var ny = fwdY(19) + (o.nose ? -1 : 0)
     put(g, 21, ny, "p"); put(g, 22, ny, "p")
     var m = MOUTHS[o.mouth] || MOUTHS.omega
-    stamp(g, m, 19, fwdY(18) + 1, false)
+    stamp(g, m, 19, fwdY(19) + 1, false)
   }
 
   // Paws.
   if (!ball) {
     var p1 = o.paws
-    var ad = fwdY(22 + Math.max(0, c - 1))
-    if (p1 === "down") { stamp(g, ARM_DOWN, fwdX(14), ad, false); stamp(g, ARM_DOWN, fwdX(29) - 6, ad, true) }
-    else if (p1 === "hold") { stamp(g, ARM_HOLD, fwdX(15), fwdY(19), false); stamp(g, ARM_HOLD, fwdX(28) - 6, fwdY(19), true) }
+    if (p1 === "down") pair(g, PAW_REST, 15, fwdY(25.2 + (c >= 3 ? 0.6 : 0)))
+    else if (p1 === "hold") pair(g, PAW_UP, 15, fwdY(21))
     else if (p1 === "wash" || p1 === "wash2") {
-      var up = p1 === "wash" ? 0 : 2
-      stamp(g, ARM_HOLD, fwdX(12), fwdY(14) + up, false)
-      stamp(g, ARM_HOLD, fwdX(31) - 6, fwdY(16) - up, true)
+      var sw2 = p1 === "wash" ? 0 : 2
+      stamp(g, PAW, fwdX(14), fwdY(18) + sw2, false)
+      stamp(g, PAW, 43 - fwdX(14) - 3, fwdY(20) - sw2, true)
     }
     else if (p1 === "cheeks") {
-      stamp(g, PAW, fwdX(CX - pcx - prx), fwdY(pcy), false)
-      stamp(g, PAW, fwdX(CX + pcx + prx) - 3, fwdY(pcy), true)
+      var pw = Math.max(c, 1)
+      var ox = c >= 2 ? CX - pcx - prx + 0.6 : 7.2
+      pair(g, PAW, ox, fwdY(pcy - 1))
     }
-    // Held items: at the mouth with raised paws, else in the hands on the tummy.
-    var iy = p1 === "hold" ? fwdY(19) : fwdY(22)
+    // Held items: at the mouth with raised paws, else in the paws on the tummy.
+    var iy = p1 === "hold" ? fwdY(21) : fwdY(25)
     if (o.item === "seed") stamp(g, seed, 21, iy, false)
     else if (o.item === "chip") stamp(g, chip, 18, iy + (p1 === "hold" ? 1 : 0), false)
   }
 
   // Hoard balanced on the head.
   if (o.pile > 0 && !ball) {
-    var top = fwdY(hcy - hry)
-    var spots = [[18, top - 2], [20, top - 5], [17, top - 8]]
+    var top = fwdY(headTop)
+    var spots = [[18, top - 3], [20, top - 5], [17, top - 7]]
     for (var p = 0; p < o.pile && p < spots.length; p++) stamp(g, chip, spots[p][0], spots[p][1], p === 1)
   }
 
   // Floor shadow.
   if (!dangle) {
-    var sw = Math.round((ball ? 15 : 13) * SX)
+    var sw = Math.round((ball ? 15 : 12) * SX)
     for (var sxp = CX - sw; sxp < CX + sw; sxp++) {
       if (g[FLOOR][sxp] === ".") g[FLOOR][sxp] = "t"
       if (sxp > CX - sw + 3 && sxp < CX + sw - 4 && g[FLOOR + 1][sxp] === ".") g[FLOOR + 1][sxp] = "t"
