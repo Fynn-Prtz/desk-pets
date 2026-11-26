@@ -244,10 +244,10 @@ Item {
   }
   readonly property string mood: inNight(hour) ? "sleep" : inNight((hour + 1) % 24) ? "drowsy" : "awake"
 
-  function pad(n) { return n < 10 ? "0" + n : String(n) }
+  function pad2(n) { return n < 10 ? "0" + n : String(n) }
   function hm(h, m) {
-    if (clock24) return pad(h) + ":" + pad(m)
-    return ((h % 12) || 12) + ":" + pad(m)
+    if (clock24) return pad2(h) + ":" + pad2(m)
+    return ((h % 12) || 12) + ":" + pad2(m)
   }
   readonly property string timeText: hm(hour, minute)
   readonly property string ampm: clock24 ? "" : (hour < 12 ? "AM" : "PM")
