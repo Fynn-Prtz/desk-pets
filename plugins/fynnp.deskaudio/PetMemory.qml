@@ -32,7 +32,7 @@ Item {
   readonly property bool fresh: freshTimer.running
 
   readonly property string dir: Quickshell.env("HOME") + "/.local/state/fynnp-desk"
-  readonly property int writeGapMs: 60000
+  property int writeGapMs: 60000   // at most one write per minute
 
   visible: false
   width: 0
@@ -81,8 +81,13 @@ Item {
 
   function ingest(t) {
     var d = null
-    try { d = JSON.parse(String(t).slice(0, 65536)) } catch (e) { return }   // mid-write: keep the last one
-    if (!d || typeof d !== "object" || Array.isArray(d)) return
+    try { d = JSON.parse(String(t).slice(0, 65536)) } catch (e) { d = null }
+    if (!d || typeof d !== "object" || Array.isArray(d)) {
+      // empty = mid-write: keep the last one; garbage on start: begin from 0
+      // (a later good read still raises the count, it never goes backwards)
+      if (!loaded && String(t).trim() !== "") loaded = true
+      return
+    }
     disk = d
     var n = parseInt(d[pluginId], 10)
     n = isNaN(n) ? 0 : Math.max(0, Math.min(1e9, n))
