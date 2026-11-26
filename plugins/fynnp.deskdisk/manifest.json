@@ -4,7 +4,7 @@
   "name": "Desk Disk",
   "version": "1.0.0",
   "author": "fynnp",
-  "description": "Always-on desktop disk card: filesystem usage, read/write rates and I/O history with a little pixel floppy",
+  "description": "Always-on desktop disk card: filesystem usage, read/write rates and I/O history with a little pixel dachshund that digs and buries your data",
   "kinds": ["service"],
   "entryPoints": { "service": "Service.qml" }
 }

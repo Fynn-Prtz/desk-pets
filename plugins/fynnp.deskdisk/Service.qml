@@ -8,8 +8,9 @@ import qs.Commons as Commons
 import qs.Ui
 
 // Desk Disk: the system card's sibling. Every real filesystem with a usage
-// meter, read/write rates with a 40 s history, and a pixel floppy that dozes,
-// spins up when the disks work hard and sweats when one is nearly full.
+// meter, read/write rates with a 40 s history, and a pixel dachshund that dozes,
+// digs when the disks work, struggles when they work hard and is buried in
+// dirt mounds when one is nearly full.
 //
 // Data comes from ~/.local/bin/deskdisk-feed (Rust, source in helpers/deskdisk-feed of the desk-pets repo):
 // it blocks on stdin and answers one JSON line per request, so it costs nothing
@@ -305,7 +306,7 @@ Item {
     return false
   }
   readonly property real ioRate: readRate + writeRate
-  // The floppy's ladder: busy carries bits; from util 50 % / 50 MB/s on it
+  // The dachshund's ladder: busy digs/buries; from util 50 % / 50 MB/s on it
   // struggles (PixelDisk reads util and the rates for that).
   readonly property string mood: !ready ? "idle"
     : anyFull ? "full"
@@ -332,7 +333,7 @@ Item {
     return fmt(Math.round(b / 1e3), 0) + " kB/s"
   }
 
-  // Pet clock (seconds): ticks only while visible and the floppy animates
+  // Pet clock (seconds): ticks only while visible and the dachshund animates
   // (a calm disk just blinks on its own timer); 8 fps only while it reacts
   // to a touch or a drag.
   property real clock: 0
@@ -344,7 +345,7 @@ Item {
   }
 
   // Read-only view of the mood bus (no name = publishes nothing), so the
-  // floppy can bob along when the audio card's cat dances.
+  // dachshund can bob along when the audio card's cat dances.
   DeskLink { id: link }
 
   // ---------- look ----------
@@ -424,7 +425,7 @@ Item {
         width: card.width - card.borderLeft - card.borderRight - root.pad * 2
         spacing: Style.space(10)
 
-        // ---- pixel floppy + root usage and rates ----
+        // ---- pixel dachshund + root usage and rates ----
         Item {
           width: parent.width
           height: buddy.height
