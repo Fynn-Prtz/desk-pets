@@ -641,11 +641,11 @@ function scene(st, fx0) {
     o.arms = o.melt >= 3 ? (tick % 2 === 0 ? "droop" : "fanB") : (tick % 2 === 0 ? "fanA" : "fanB")
     o.scr = "therm"; o.tint = "k"
     face = { eyes: o.melt >= 3 ? "droop" : "tired", brows: "worry", mouth: tick % 2 === 0 ? "pant" : "tongue", lookX: 0, lookY: 0 }
-    if (shiver) { o.px = tick % 2 === 0 ? -1 : 1; face.eyes = "wide"; face.mouth = "wobble" }
+    if (shiver) { o.px = tick % 2 === 0 ? -1 : 1; face.eyes = "wide"; face.mouth = "open" }
     var sp = tick % 6
-    if (sp < 3) fx.push({ rows: FX.puff[sp], x: 7 - sp, y: 5 + o.melt * 2 - sp * 2, c: "w", op: 0.5 })
+    if (sp < 3) fx.push({ rows: FX.puff[sp], x: 4 - sp, y: Math.max(0, o.melt * 2 - 1 - sp * 2), c: "w", op: 0.5 })
     sp = (tick + 3) % 6
-    if (sp < 3) fx.push({ rows: FX.puff[sp], x: 14 + sp, y: 5 + o.melt * 2 - sp * 2, c: "w", op: 0.4 })
+    if (sp < 3) fx.push({ rows: FX.puff[sp], x: 13 + sp, y: Math.max(0, o.melt * 2 - 2 - sp * 2), c: "w", op: 0.4 })
     sweatDrops(fx, t, 2)
   }
 
