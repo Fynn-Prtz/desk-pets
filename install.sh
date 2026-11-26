@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # desk-pets installer for Omarchy (Hyprland + omarchy-shell / Quickshell).
 #
-#   ./install.sh                 core: system, memory, disk, audio, games, net, clock cards, layout mode, cat screensaver plugin
+#   ./install.sh                 core: system, memory, disk, audio, games, net, clock, weather cards, layout mode, cat screensaver plugin
 #   ./install.sh --sessions      + MangoHud game-session reports (MangoHud config, Steam launcher, systemd units)
 #   ./install.sh --rapl          + CPU package watts (udev rule, needs sudo; see README for the trade-off)
 #   ./install.sh --screensaver   + replace Omarchy's terminal screensaver with the pixel cat
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGINS=(fynnp.desksys fynnp.deskmem fynnp.deskdisk fynnp.deskaudio fynnp.deskgames fynnp.desknet fynnp.deskclock fynnp.desklayout fynnp.catsaver)
+PLUGINS=(fynnp.desksys fynnp.deskmem fynnp.deskdisk fynnp.deskaudio fynnp.deskgames fynnp.desknet fynnp.deskclock fynnp.deskweather fynnp.desklayout fynnp.catsaver)
 PLUGIN_DIR="$HOME/.config/omarchy/plugins"
 SHELL_JSON="$HOME/.config/omarchy/shell.json"
 HYPR="$HOME/.config/hypr"
@@ -38,6 +38,7 @@ backup() { [[ -e "$1" ]] && cp -a "$1" "$1.bak.$TS" || true; }
 need() { command -v "$1" >/dev/null 2>&1 || { warn "missing dependency: $1 ($2)"; exit 1; }; }
 
 need jq "pacman -S jq"
+need curl "pacman -S curl (the weather card fetches Open-Meteo with it)"
 need omarchy-shell "desk-pets needs Omarchy's shell (Quickshell)"
 
 # ---------------------------------------------------------------- uninstall
@@ -59,6 +60,7 @@ if ((uninstall)); then
     systemctl --user daemon-reload
   fi
   rm -f "$BIN/desksys-feed" "$BIN/deskmem-feed" "$BIN/deskdisk-feed" "$BIN/desknet-feed" "$BIN/desk-session"
+  rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/fynnp-desk/weather-*.json
   say "done. Hyprland snippets, MangoHud config and the Steam launcher override were left in place;"
   say "remove the 'desk-pets' lines in $HYPR/looknfeel.lua and $HYPR/bindings.lua by hand if you like."
   omarchy restart shell >/dev/null 2>&1 || true
@@ -103,6 +105,7 @@ defaults='[
   { "id": "fynnp.deskgames",  "corner": "center-right", "marginX": 32, "marginY": 0,  "opacity": 0.5, "borderOpacity": 0.08 },
   { "id": "fynnp.desknet",    "corner": "bottom-left",  "marginX": 32, "marginY": 32, "opacity": 0.5, "borderOpacity": 0.08, "interval": 1000 },
   { "id": "fynnp.deskclock",  "corner": "top-right",    "marginX": 408, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "clock24": true, "hoot": "count", "nightFrom": 23, "nightTo": 7 },
+  { "id": "fynnp.deskweather", "corner": "top-left",     "marginX": 416, "marginY": 58, "opacity": 0.5, "borderOpacity": 0.08, "units": "metric", "refresh": 30 },
   { "id": "fynnp.desklayout", "grid": 24 },
   { "id": "fynnp.catsaver",   "timeout": 150, "fps": 8 }
 ]'
@@ -124,7 +127,7 @@ append_once() { # <file> <marker> <text>
   printf '\n%s\n' "$3" >> "$1"
 }
 say "adding blur rules and the SUPER+ALT+E layout hotkey"
-for ns in desksys deskmem deskdisk deskaudio deskgames desknet deskclock; do
+for ns in desksys deskmem deskdisk deskaudio deskgames desknet deskclock deskweather; do
   append_once "$HYPR/looknfeel.lua" "^fynnp-$ns\$" \
     "-- desk-pets: frosted glass behind fynnp.$ns
 hl.layer_rule({ match = { namespace = \"^fynnp-$ns\$\" }, blur = true, ignore_alpha = 0.1 })"

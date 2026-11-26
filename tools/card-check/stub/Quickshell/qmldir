@@ -1,0 +1,7 @@
+module Quickshell
+singleton Quickshell 1.0 Quickshell.qml
+PanelWindow 1.0 PanelWindow.qml
+Region 1.0 Region.qml
+AnchorsStub 1.0 AnchorsStub.qml
+MarginsStub 1.0 MarginsStub.qml
+ExclusionMode 1.0 ExclusionMode.qml

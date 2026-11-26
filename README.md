@@ -20,6 +20,7 @@ from tiny Rust helpers that sleep until they're asked or something changes.
 | 🎮 | **Desk Games** (`fynnp.deskgames`) | Recently played Steam games with covers, one click to launch, live "Playing · 0:42", and the **last session report** (avg FPS, 1 % low, peak temps, kWh). A gamepad critter that mashes buttons and holds up a trophy. |
 | 📡 | **Desk Net** (`fynnp.desknet`) | Default-route interface and IPv4, live ↓/↑ rates, a 40 s mirrored throughput history, totals since the card started. A pixel router that dozes when the line is quiet, flickers its LEDs and passes packets when busy, and flops its antennas when you're offline. |
 | 🦉 | **Desk Clock** (`fynnp.deskclock`) | The time, the date, how far through the day, week and year you are, and uptime. An owl on a branch with a pocket watch that shows the real time: it checks the watch, swivels its head right round, hoots the hour on the hour (visual only, no sound) and sleeps at night. |
+| 🐸 | **Desk Weather** (`fynnp.deskweather`) | Current weather from [Open-Meteo](https://open-meteo.com) (no API key), a 40 h temperature lattice with "rain from 15:00", and three days ahead with range bars. A pixel frog that dresses for it: umbrella and puddle jumping in the rain (inside out in a storm), sunglasses in the sun, a scarf in the cold, catching snowflakes on its tongue. **Opt-in:** it makes no network calls until you set `latitude` / `longitude`. |
 | 🌙 | **Cat screensaver** (`fynnp.catsaver`) | A sleeping pixel cat with a swishing tail, breathing, drifting z's, a moon and twinkling stars, on every monitor. |
 | ✋ | **Layout mode** (`fynnp.desklayout`) | **SUPER + ALT + E**: drag the cards anywhere on a snapping grid, nudge them with the arrow keys, send them to another monitor. |
 
@@ -85,7 +86,7 @@ stay-awake is on, or while the screen is locked. Any key, click or mouse move di
 ## Requirements
 
 - Omarchy with the Quickshell-based `omarchy-shell` (Hyprland 0.56+ Lua config)
-- `rust` / `cargo` (`omarchy pkg add rust` or `mise use -g rust`), `jq`
+- `rust` / `cargo` (`omarchy pkg add rust` or `mise use -g rust`), `jq`, `curl` (weather card)
 - Optional: Steam; `mangohud` + `lib32-mangohud` for session reports; an NVIDIA GPU (NVML) or an AMD GPU
   for GPU stats
 
@@ -131,6 +132,10 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `hoot` | clock | `"count"` | On the hour the owl hoots the hour (`"count"`, 1–12 hoots), once (`"once"`) or not at all (`"off"`) |
 | `nightFrom`, `nightTo` | clock | 23 / 7 | Hours the owl sleeps (it gets drowsy the hour before) |
 | `petMotion` | clock | `"full"` | `"calm"`: no idle fidgets, a single hoot · `"still"`: mood frames only, no animation and no clock ticks |
+| `latitude`, `longitude` | weather | unset | Your location in decimal degrees, e.g. `52.52`, `13.405`. Until both are set the card shows a setup hint and never touches the network. Sent to Open-Meteo rounded to 3 decimals (~100 m) |
+| `place`, `units` | weather | `""` / `"metric"` | Name shown on the card; `"imperial"` for °F and mph |
+| `refresh` | weather | 30 | Minutes between fetches (minimum 30); fetches happen only while the card is visible, cached in `~/.cache/fynnp-desk/` |
+| `petMotion` | weather | `"full"` | `"calm"`: no idle fidgets or neighbour extras; `"still"`: one frame per weather, no animation clock |
 | `grid` | layout | 24 | Snapping grid in px |
 | `seasons`, `birthday` | layout (all pets) | `true` / none | Seasonal outfits from the date: Christmas Dec 1–26, Halloween in October, party hats + confetti on Dec 31 / Jan 1 and on your `birthday` (`"MM-DD"`). `false` turns them off |
 | `dayNight` | layout (all pets) | `true` | After 23:00 the pets yawn more and wear a nightcap when asleep; their first wake between 06:00 and 10:00 is a stretch and a tiny coffee. `false` turns it off |
