@@ -30,19 +30,26 @@ Item {
   property string season: ""
   property bool night: false
   property bool morning: false
+  // Demo overrides (tools/pet-demo via the card IPC): survive refresh() until cleared.
+  property string demoSeason: ""   // "" = from the date
+  property int demoNight: -1       // -1 = from the clock, 0/1 forced
+  property int demoMorning: -1
 
   readonly property string home: Quickshell.env("HOME")
 
   function refresh() {
     var now = new Date()
-    season = enabled ? PetSeason.accessory(now, birthday) : ""
+    season = demoSeason !== "" ? demoSeason : enabled ? PetSeason.accessory(now, birthday) : ""
     var d = PetSeason.dayPart(now)
-    night = dayNight && d.night
-    morning = dayNight && d.morning
+    night = demoNight >= 0 ? demoNight === 1 : dayNight && d.night
+    morning = demoMorning >= 0 ? demoMorning === 1 : dayNight && d.morning
   }
   onEnabledChanged: refresh()
   onBirthdayChanged: refresh()
   onDayNightChanged: refresh()
+  onDemoSeasonChanged: refresh()
+  onDemoNightChanged: refresh()
+  onDemoMorningChanged: refresh()
 
   FileView {
     path: cal.home + "/.config/omarchy/shell.json"

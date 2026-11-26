@@ -329,6 +329,10 @@ Item {
   IpcHandler {
     target: "deskmem"
     function demo(mood: string): void { root.demoMood = mood }
+    // outfits: "" (back to the date) | xmas | party | spooky; night: nightcap when asleep, morning: coffee on wake
+    function season(key: string): void { seasonCal.demoSeason = key }
+    function night(on: bool): void { seasonCal.demoNight = on ? 1 : -1 }
+    function morning(on: bool): void { seasonCal.demoMorning = on ? 1 : -1 }
     function react(kind: string): void {
       if (kind === "land") hamster.touch.landings++
       else hamster.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
