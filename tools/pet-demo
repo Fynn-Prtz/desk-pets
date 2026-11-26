@@ -2,7 +2,7 @@
 # pet-demo: run the desk pets through all their moods, touch reactions and neighbour moments, live on the
 # desktop, so you can look at every animation without waiting for the real load/temps/traffic.
 #
-#   tools/pet-demo [sys|mem|disk|net|games|audio|clock|outfits|all ...] [-s SECONDS] [--stay]
+#   tools/pet-demo [sys|mem|disk|net|games|audio|clock|weather|outfits|all ...] [-s SECONDS] [--stay]
 #
 # Default: all pets, 5 s per state. Switches DP-1 to an empty workspace while it runs (so the cards aren't
 # covered) and switches back at the end. --stay keeps the current workspace. Ctrl+C restores everything.
@@ -19,10 +19,10 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ ${#PICK[@]} -eq 0 ] && PICK=(all)
-[ "${PICK[0]}" = all ] && PICK=(sys mem disk net games audio clock outfits)
+[ "${PICK[0]}" = all ] && PICK=(sys mem disk net games audio clock weather outfits)
 
 B=$'\e[1m'; DIM=$'\e[2m'; R=$'\e[0m'; C=$'\e[36m'
-CARDS=(desksys deskmem deskdisk desknet deskgames deskaudio deskclock)
+CARDS=(desksys deskmem deskdisk desknet deskgames deskaudio deskclock deskweather)
 ipc() { omarchy-shell "$@" >/dev/null 2>&1; }
 say() { printf '  %s%-9s%s %s\n' "$C" "$1" "$R" "$2"; }
 hold() { sleep "${1:-$SECS}"; }
@@ -85,21 +85,30 @@ for p in "${PICK[@]}"; do
       moods deskclock "🦉 Owl" awake drowsy sleep
       ipc deskclock demo awake; say hoot "on the hour"; ipc deskclock react hoot; hold 6
       reactions deskclock awake ;;
+    weather)
+      moods deskweather "🐸 Frog" setup waiting offline sleep night sun hot cloudy cold wind fog drizzle rain storm snow
+      reactions deskweather cloudy
+      echo "  ${DIM}neighbours${R}"
+      ipc deskweather demo cloudy
+      say croak "cat dances -> frog croaks along";     ipc deskaudio demo dance; hold; ipc deskaudio demo ""
+      say "!" "axolotl launches a game";               ipc deskgames demo launching; hold; ipc deskgames demo ""
+      ipc deskweather demo "" ;;
     outfits)
-      PETS6=(desksys deskmem deskdisk desknet deskgames deskaudio)
+      PETS6=(desksys deskmem deskdisk desknet deskgames deskaudio deskclock deskweather)
       echo; echo "${B}🎅 Seasonal outfits + day/night${R} ${DIM}(all pets at once)${R}"
       for d in "${PETS6[@]}"; do ipc "$d" demo ""; done
+      ipc deskclock demo awake; ipc deskweather demo cloudy
       for k in xmas party spooky; do say "$k" "outfit"; for d in "${PETS6[@]}"; do ipc "$d" season "$k"; done; hold $((SECS + 3)); done
       for d in "${PETS6[@]}"; do ipc "$d" season ""; done
       say nightcap "asleep after 23:00"
-      for d in desksys:idle deskmem:sleep deskdisk:idle desknet:idle deskgames:idle deskaudio:sleep; do ipc "${d%%:*}" night true; ipc "${d%%:*}" demo "${d##*:}"; done
+      for d in desksys:idle deskmem:sleep deskdisk:idle desknet:idle deskgames:idle deskaudio:sleep deskclock:sleep deskweather:sleep; do ipc "${d%%:*}" night true; ipc "${d%%:*}" demo "${d##*:}"; done
       hold $((SECS + 3))
       say morning "first wake of the day: stretch + coffee"
-      for d in desksys:chill deskmem:calm deskdisk:light desknet:light deskgames:ready deskaudio:idle; do ipc "${d%%:*}" night false; ipc "${d%%:*}" morning true; ipc "${d%%:*}" demo "${d##*:}"; done
+      for d in desksys:chill deskmem:calm deskdisk:light desknet:light deskgames:ready deskaudio:idle deskclock:awake deskweather:cloudy; do ipc "${d%%:*}" night false; ipc "${d%%:*}" morning true; ipc "${d%%:*}" demo "${d##*:}"; done
       hold 7
       for d in "${PETS6[@]}"; do ipc "$d" morning false; ipc "$d" season ""; ipc "$d" demo ""; done ;;
     audio) moods deskaudio "🐱 DJ cat" sleep idle dance loud;            reactions deskaudio idle ;;
-    *) echo "unknown pet '$p' (sys mem disk net games audio clock outfits all)" >&2 ;;
+    *) echo "unknown pet '$p' (sys mem disk net games audio clock weather outfits all)" >&2 ;;
   esac
 done
 reset

@@ -27,6 +27,10 @@ Item {
 
   Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
 
+  // ---------- seasonal outfit (season-hats): date -> PetSeason key ----------
+  // "seasons" / "birthday" / "dayNight" live on the fynnp.desklayout entry (PetCalendar.qml).
+  PetCalendar { id: seasonCal; active: root.active }
+
   // ---------- settings ----------
   property string monitorName: ""
   property string fallbackMonitor: ""
@@ -42,6 +46,11 @@ Item {
   property string hootMode: "count"     // count | once | off
   property int nightFrom: 23            // the owl sleeps from this hour ...
   property int nightTo: 7               // ... until this hour
+  // Pet settings (README): pet false hides the owl (the card stays),
+  // petReactions false turns touch off (no petting, hover or drag dangle),
+  // petMotion full | calm (no fidgets/extras, one hoot) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
   property string petMotion: "full"     // full | calm | still
 
   function applySettings(raw) {
@@ -69,6 +78,8 @@ Item {
     hootMode = ["count", "once", "off"].indexOf(hm) >= 0 ? hm : "count"
     nightFrom = clampInt(entry.nightFrom, 0, 23, 23)
     nightTo = clampInt(entry.nightTo, 0, 23, 7)
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
     var pm = String(entry.petMotion || "full")
     petMotion = ["full", "calm", "still"].indexOf(pm) >= 0 ? pm : "full"
   }
@@ -199,7 +210,7 @@ Item {
     // a card that was covered at the full hour stays quiet
     if (m <= 1 && h !== lastHootHour) {
       lastHootHour = h
-      if (hootMode !== "off") owl.hoot(hootMode === "once" ? 1 : (h % 12 === 0 ? 12 : h % 12))
+      if (hootMode !== "off" && showPet) owl.hoot(hootMode === "once" ? 1 : (h % 12 === 0 ? 12 : h % 12))
       uptimeProc.running = true
     } else if (m > 1) lastHootHour = h
   }
@@ -297,7 +308,7 @@ Item {
   Timer {
     interval: owl.fast ? 125 : 250
     repeat: true
-    running: root.active && owl.moving
+    running: root.active && root.showPet && root.petMotion !== "still" && owl.moving
     onTriggered: root.clock += interval / 1000
   }
 
@@ -310,12 +321,21 @@ Item {
   IpcHandler {
     target: "deskclock"
     function demo(mood: string): void { root.demoMood = mood }
+    // outfits: "" (back to the date) | xmas | party | spooky; night: nightcap when asleep, morning: coffee on wake
+    function season(key: string): void { seasonCal.demoSeason = key }
+    function night(on: bool): void { seasonCal.demoNight = on ? 1 : -1 }
+    function morning(on: bool): void { seasonCal.demoMorning = on ? 1 : -1 }
     function react(kind: string): void {
       if (kind === "land") owl.touch.landings++
       else if (kind === "hoot") owl.hoot(3)
       else owl.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
     }
   }
+
+  // Welcome back: the owl greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskclock"; rect: place.rect; active: root.active && root.showPet && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.deskclock"; touch: owl.touch }
 
   PanelWindow {
     id: win
@@ -393,15 +413,25 @@ Item {
         // ---- owl + time ----
         Item {
           width: parent.width
-          height: owl.height
+          height: root.showPet ? owl.height : owlStatus.implicitHeight
 
           PixelOwl {
             id: owl
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
             motion: root.petMotion
+            reactions: root.petReactions
+            season: seasonCal.season
+            // the owl keeps its own hours: nightcap whenever it sleeps (dayNight on), or after 23:00
+            night: seasonCal.night || (seasonCal.dayNight && seasonCal.demoNight !== 0 && root.mood === "sleep")
+            morning: seasonCal.morning
+            greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             mood: root.mood
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             place: place
             window: win.contentItem
             hourStep: (root.hour % 12) * 2 + (root.minute >= 30 ? 1 : 0)
@@ -409,8 +439,9 @@ Item {
           }
 
           Column {
+            id: owlStatus
             anchors.left: owl.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2

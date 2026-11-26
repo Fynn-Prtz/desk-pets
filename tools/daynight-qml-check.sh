@@ -5,15 +5,15 @@
 # plus the morning with motion "still" (the cards never start it then; here it
 # just has to load). Prints Qt errors; frames / GIFs / sheet per pet.
 #
-#   tools/daynight-qml-check.sh OUT_DIR [pet ...]   pets: penguin hamster cat dog pigeon axolotl
+#   tools/daynight-qml-check.sh OUT_DIR [pet ...]   pets: penguin hamster cat dog pigeon axolotl owl frog
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd); ROOT=$(dirname "$HERE")
 OUT=${1:-/tmp/daynight-qml}; shift || true
-PETS=${*:-penguin hamster cat dog pigeon axolotl}
-declare -A PLUG=( [penguin]=desksys [hamster]=deskmem [cat]=deskaudio [dog]=deskdisk [pigeon]=desknet [axolotl]=deskgames )
-declare -A TYPE=( [penguin]=PixelBuddy [hamster]=PixelHamster [cat]=PixelCat [dog]=PixelDisk [pigeon]=PixelRouter [axolotl]=PixelGamer )
-declare -A SLEEP=( [penguin]='{mood:"idle"}' [hamster]='{mood:"sleep"}' [cat]='{playing:false}' [dog]='{mood:"idle"}' [pigeon]='{mood:"idle"}' [axolotl]='{mood:"idle"}' )
-declare -A AWAKE=( [penguin]='{mood:"chill"}' [hamster]='{mood:"calm"}' [cat]='{playing:true,level:0}' [dog]='{mood:"light"}' [pigeon]='{mood:"light"}' [axolotl]='{mood:"ready"}' )
+PETS=${*:-penguin hamster cat dog pigeon axolotl owl frog}
+declare -A PLUG=( [penguin]=desksys [hamster]=deskmem [cat]=deskaudio [dog]=deskdisk [pigeon]=desknet [axolotl]=deskgames [owl]=deskclock [frog]=deskweather )
+declare -A TYPE=( [penguin]=PixelBuddy [hamster]=PixelHamster [cat]=PixelCat [dog]=PixelDisk [pigeon]=PixelRouter [axolotl]=PixelGamer [owl]=PixelOwl [frog]=PixelFrog )
+declare -A SLEEP=( [penguin]='{mood:"idle"}' [hamster]='{mood:"sleep"}' [cat]='{playing:false}' [dog]='{mood:"idle"}' [pigeon]='{mood:"idle"}' [axolotl]='{mood:"idle"}' [owl]='{mood:"sleep"}' [frog]='{mood:"sleep"}' )
+declare -A AWAKE=( [penguin]='{mood:"chill"}' [hamster]='{mood:"calm"}' [cat]='{playing:true,level:0}' [dog]='{mood:"light"}' [pigeon]='{mood:"light"}' [axolotl]='{mood:"ready"}' [owl]='{mood:"awake"}' [frog]='{mood:"cloudy"}' )
 for pet in $PETS; do
   sc=$(mktemp --suffix=.js)
   cat > "$sc" <<JS

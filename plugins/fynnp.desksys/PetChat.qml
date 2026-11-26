@@ -9,7 +9,8 @@ import "PetFx.js" as PetFx
 //
 // Every few minutes a calm pet looks toward a neighbouring card and sends a
 // little thing in character (penguin: paper plane, hamster: sunflower seed,
-// cat: music note, dachshund: bone, pigeon: envelope, axolotl: bubble). It
+// cat: music note, dachshund: bone, pigeon: envelope, axolotl: bubble, owl:
+// feather, frog: lily pad). It
 // flies off the pet's side; a moment later it flies in on the other card from
 // the sender's side, the receiver looks back (a sleeping one opens its eyes)
 // and the gift pops into a little heart. Everything stays inside each card.
@@ -46,7 +47,7 @@ Item {
   property int lookX: 0
   property int lookY: 0
 
-  readonly property var names: ["buddy", "hamster", "cat", "dog", "pigeon", "gamer"]
+  readonly property var names: ["buddy", "hamster", "cat", "dog", "pigeon", "gamer", "owl", "frog"]
   readonly property string dir: Quickshell.env("XDG_RUNTIME_DIR") + "/fynnp-desk"
   property bool ready: false
   property var peers: ({})                  // name -> {s, m, x, y, w, h}
@@ -69,14 +70,15 @@ Item {
   property string written: "-"
   onAvailChanged: publish()
   function publish() {
-    if (!ready || name === "" || avail === written) return
+    // writer.path may still be "" while `ready` notifies (binding order): wait for onExited's call
+    if (!ready || name === "" || avail === written || writer.path === "") return
     written = avail
     writer.setText(avail + "\n")
   }
 
   Process {
     running: true
-    command: ["sh", "-c", "mkdir -p \"$1\" && cd \"$1\" && for n in buddy hamster cat dog pigeon gamer; do touch \"chat-$n\" \"msg-$n\"; done", "sh", chat.dir]
+    command: ["sh", "-c", "mkdir -p \"$1\" && cd \"$1\" && for n in buddy hamster cat dog pigeon gamer owl frog; do touch \"chat-$n\" \"msg-$n\"; done", "sh", chat.dir]
     onExited: { chat.ready = true; chat.publish() }
   }
   FileView {
@@ -154,7 +156,7 @@ Item {
   }
 
   // ---------- receiving ----------
-  readonly property var items: ["plane", "seed", "note", "bone", "envelope", "bubble", "heart"]
+  readonly property var items: ["plane", "seed", "note", "bone", "envelope", "bubble", "feather", "lily", "heart"]
   property bool inboxPrimed: false
   FileView {
     path: chat.ready && chat.name ? chat.dir + "/msg-" + chat.name : ""
@@ -219,12 +221,15 @@ Item {
     bone: ["oo.....oo", "ohoooooho", "ohhhhhhho", "ohoooooho", "oo.....oo"],
     envelope: ["ooooooo", "oohhhoo", "ohohoho", "ohhohho", "ooooooo"],
     bubble: [".ooo.", "oh..o", "o...o", "o...o", ".ooo."],
+    feather: ["....oo", "...oho", "..ohho", ".ohho.", ".oho..", "o....."],
+    lily: ["..ohoo.", ".ohhhho", "ohh.hho", "ohhhhho", ".ooooo."],
     heart: PetFx.heartSmall
   })
   PetColors { id: colors }
   readonly property var tones: ({
     plane: colors.fx(colors.fg), seed: colors.fx(colors.base.d), note: colors.fx(colors.fg),
     bone: colors.fx(colors.base.l), envelope: colors.fx(colors.base.l), bubble: colors.fx(colors.base.h),
+    feather: colors.fx(colors.base.w), lily: colors.fx(colors.base.n),
     heart: colors.fx(colors.urgent)
   })
   readonly property var rows: {
@@ -233,7 +238,7 @@ Item {
     var r = sprites[shown] || sprites.heart
     // face the direction of travel (sender: away, receiver: coming in)
     var goesLeft = phase === "send" ? dirX < 0 : dirX > 0
-    return goesLeft && shown !== "note" && shown !== "bubble" && shown !== "seed" ? PetFx.mirror(r) : r
+    return goesLeft && shown !== "note" && shown !== "bubble" && shown !== "seed" && shown !== "lily" ? PetFx.mirror(r) : r
   }
 
   PixelSprite {

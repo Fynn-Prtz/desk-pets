@@ -110,7 +110,7 @@ land), and feeds `chat.looking/lookX/lookY` into PetTouch's `gazing/gazeX/gazeY`
 own hover pose. Bus in `$XDG_RUNTIME_DIR/fynnp-desk`: `chat-<name>` (availability + global card rect, written
 on change) and `msg-<name>` (inbox), inotify-watched. One single-shot timer (4–9 min) runs only while the pet
 is calm, visible and a same-monitor neighbour is available; the clock runs only during the ~3 s moment.
-Gifts: penguin plane, hamster seed, cat note, dachshund bone, pigeon envelope, axolotl bubble. Check:
+Gifts: penguin plane, hamster seed, cat note, dachshund bone, pigeon envelope, axolotl bubble, owl feather, frog lily pad. Check:
 `tools/pet-chat-check/run.sh SENDER RECEIVER[:sleep] OUT [vertical]`.
 
 

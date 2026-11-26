@@ -209,9 +209,10 @@ var WINGS = {
   preen:   [[7.6, 19.5], [6.6, 15.5], [10.0, 13.5]],
   // right-wing only poses (already in right-wing coordinates)
   point:   [[24.4, 19.5], [28.0, 19.0], [30.6, 17.4]],
+  wind:    [[24.4, 19.0], [29.6, 16.2], [34.6, 13.6]],   // day-night: reaches up to the watch crown
   tap:     [[24.4, 19.5], [28.2, 20.6], [31.0, 20.2]]
 }
-var RIGHT_ONLY = { point: 1, tap: 1 }
+var RIGHT_ONLY = { point: 1, tap: 1, wind: 1 }
 
 var BEAKS = {
   shut: ["oddo", ".dd.", ".oo."],
@@ -368,6 +369,7 @@ function build(o) {
     })
   }
 
+  if (o.acc || o.cap || o.mug !== undefined) seasonOwl(g, o, hcy, hry)   // season: Santa / witch / party hat; day-night: nightcap, coffee mug
   // talons gripping the branch (or dangling / stomping)
   var feet = o.feet || "perch"
   var fy = 32.0, fl = fy, fr = fy
@@ -382,6 +384,7 @@ function build(o) {
     stamp(g, CX + 1, Math.floor(fr), FOOT)
   }
 
+  if (o.conf !== undefined) seasonConfetti(g, o.conf)   // season: confetti burst
   if (o.lean) {
     for (var y5 = 0; y5 < H; y5++) {
       var sh = o.lean * Math.floor(Math.max(0, y5 - 8) / 9)
@@ -406,7 +409,8 @@ function frame(o) {
   var f = o.face || {}
   var key = [o.sq || 0, o.puff || 0, o.lift || 0, o.sunk || 0, o.tufts || "", o.back ? 1 : 0, o.wingL || "", o.wingR || "",
     o.feet || "", o.lean || 0,
-    o.face ? [f.eyes, f.eyesR || "", f.fx || 0, f.fy || 0, f.tilt || 0, f.beak || "", f.blush ? 1 : 0, f.look || 0].join(",") : ""].join("|")
+    o.face ? [f.eyes, f.eyesR || "", f.fx || 0, f.fy || 0, f.tilt || 0, f.beak || "", f.blush ? 1 : 0, f.look || 0].join(",") : "",
+    o.acc || "", o.conf === undefined ? "" : o.conf, o.cap ? 1 : 0, o.mug === undefined ? "" : o.mug].join("|")
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -449,8 +453,9 @@ var RING = [
 var FX = null
 function init(fx) { if (FX !== fx) FX = fx }
 
-function scene(st, fx0) {
+function scene(st, fx0, season0) {
   if (fx0) init(fx0)
+  if (season0) SEASON = season0
   var t = st.t, tick = Math.floor(t * 4), mood = st.mood
   var o = { tufts: "up", wingL: "fold", wingR: "fold", feet: "perch" }
   var face = { eyes: st.blink ? "blink" : "open", beak: "shut" }
@@ -541,6 +546,15 @@ function scene(st, fx0) {
     if (st.hovered && face && !fd) o.tufts = "perk"
   }
 
+  if (st.morningT >= 0 && !asleep && SEASON) {   // day-night: wing stretch, coffee, winds the watch
+    var mo = owlMorning(st, tick); o = mo.o; face = mo.face; fx = mo.fx; sw = mo.sw; dx = 0; dy = 0
+  }
+  if (asleep && st.night && SEASON) o.cap = 1   // day-night: nightcap while it sleeps
+  // ---- welcome back (greet; see greetOwl below) ----
+  if (st.greetT >= 0) {
+    var gr = greetOwl(st, tick, asleep); o = gr.o; face = gr.face; fx = gr.fx; sw = gr.sw; dx = 0; dy = gr.dy
+  }
+
   // ---- touch reactions ----
   if (st.dragged) {
     o = { wingL: tick % 2 === 0 ? "up" : "down", wingR: tick % 2 === 0 ? "up" : "down", tufts: "back",
@@ -603,12 +617,133 @@ function scene(st, fx0) {
   }
 
   // hover: the head turns to follow the pointer (owls move heads, not eyes)
-  if (st.hovered && face && !st.reaction && !st.dragged && st.landT < 0 && st.hoot < 0 && !asleep && !st.fidget) {
+  if (st.hovered && face && !st.reaction && !st.dragged && st.landT < 0 && st.hoot < 0 && !asleep && !st.fidget
+      && !(st.greetT >= 0) && !(st.morningT >= 0)) {
     face.fx = st.lookX; face.fy = st.lookY; face.look = st.lookX
     if (face.eyes === "half" || face.eyes === "blink") face.eyes = st.blink ? "blink" : "open"
   }
 
   o.face = face
+  seasonScene(o, st)
   if (fx.length > FX_SLOTS) fx = fx.slice(0, FX_SLOTS)
   return { rows: frame(o), x: dx, y: dy, prop: prop(st.hh || 0, st.mm || 0, st.still ? 0 : sw), fx: fx }
+}
+
+// ---------------------------------------------------------------- season
+//
+// Seasonal outfit (shared/PetSeason.js), worn between the ear tufts on the
+// head top (≈ y5, centre x16; the tufts poke out at the sides): December a
+// floppy Santa hat, October a purple witch hat (the wise owl is the cast's
+// natural wizard), party days a striped party hat, confetti on the branch and
+// a burst while petted (not with motion "still"). Frame key fields acc + conf.
+
+var SEASON = null    // PetSeason, handed in by the caller like PetFx
+
+function seasonScene(o, st) {
+  if (!SEASON || !st.season) return
+  o.acc = st.season
+  if (st.season === "party" && st.reaction === "pet" && st.motion !== "still" && st.reactT < 2)
+    o.conf = Math.floor(st.reactT * 8) / 16
+}
+
+function seasonOwl(g, o, hcy, hry) {
+  var top = Math.ceil(hcy - hry)
+  function putG(x, y, c) { put(g, x, y, c) }
+  if (o.mug !== undefined) {
+    // day-night coffee: held out on the left wing, or raised to the beak (sip)
+    var m = SEASON.mug(o.mug < 2 ? o.mug : -1)
+    if (o.mug === 2) stamp(g, 6, Math.round(hcy) + 1, m)
+    else stamp(g, 0, 18, m)
+  }
+  if (o.cap) {   // day-night: nightcap instead of any hat, flopping over the flat right tuft
+    SEASON.stampHat(putG, SEASON.hat("night", 11, 3, 1), CX, top + 2)
+    return
+  }
+  if (o.acc === "xmas") SEASON.stampHat(putG, SEASON.hat("santa", 9, 3, 1), CX, top + 2)
+  else if (o.acc === "spooky") SEASON.stampHat(putG, SEASON.hat("witch", 11, 5, -1), CX, top + 2)
+  else if (o.acc === "party") {
+    SEASON.stampHat(putG, SEASON.hat("party", 7, 5, 1), CX, top + 2)
+    // confetti lying on the branch
+    var bits = SEASON.confetti(23, 10, 0, 32, 43, 32, -1)
+    for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".")
+  }
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(41, 16, 1, 0, 42, 30, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+// ---------------------------------------------------------------- day / night
+//
+// day-night: the owl sleeps by its own hours; while it does (or after 23:00)
+// it wears a floppy nightcap (o.cap). The first wake between 06:00 and 10:00
+// (st.morningT, s since the routine started, -1 = none; 4.5 s): both wings
+// stretched wide with a huge yawn, a ruffle; then a tiny steaming coffee held
+// on the left wing and a sip (the eyes go wide: awake now); finally it winds
+// the pocket watch for the day (right wing on the crown, click, click; the
+// watch swings) and nods. o.mug: 0/1 steam phase held out, 2 = at the beak.
+
+function owlMorning(st, tick) {
+  var t = st.morningT, k = Math.floor(t * 4), fx = [], sw = 0
+  var o = { tufts: "up", wingL: "fold", wingR: "fold", feet: "perch" }
+  var face = { eyes: "half", beak: "shut" }
+  if (t < 1.5) {
+    var up = t > 0.25 && t < 1.3
+    o.wingL = up ? "stretch" : "mid"; o.wingR = up ? "stretch" : "mid"
+    o.lift = up ? 1 : 0; o.tufts = up ? "perk" : "back"
+    face = { eyes: "closed", beak: up ? "wide" : "open" }
+  } else if (t < 1.9) {
+    o.puff = 2; o.tufts = k % 2 === 0 ? "back" : "up"
+    face = { eyes: "closed", beak: "shut" }
+    var rp = Math.min(1, (t - 1.5) / 0.4)
+    fx.push({ rows: FEATHER[k % 2], x: 3, y: 16 + Math.round(rp * 6), c: "l", op: 0.8 })
+  } else if (t < 3.2) {
+    var sip = t > 2.3 && t < 2.8
+    o.wingL = sip ? "preen" : "lift"
+    o.mug = sip ? 2 : k % 2
+    face = sip ? { eyes: "closed", beak: "shut", fy: 1 } : t > 2.8 ? { eyes: "wide", beak: "shut" } : { eyes: "half", beak: "shut" }
+    if (t > 2.8 && k % 2 === 0) fx.push({ rows: FX.sparkle[0], x: 0, y: 4, c: "o", op: 1 })
+  } else {
+    var turn = t < 4.1
+    o.wingR = turn ? (k % 2 === 0 ? "wind" : "point") : "fold"
+    face = turn ? { eyes: "open", beak: "shut", fx: 1, look: 1 } : { eyes: "happy", beak: "shut", blush: true }
+    sw = turn ? 0 : (k % 2 === 0 ? 1 : -1)
+    if (turn && k % 2 === 0) fx.push({ rows: FX.sparkle[k % 4 < 2 ? 0 : 1], x: 39, y: 8, c: "o", op: 1 })
+  }
+  return { o: o, face: face, fx: fx, sw: sw }
+}
+
+// ---------------------------------------------------------------- welcome back
+//
+// The user is back (shared/PetGreet.qml): the owl perks up (a sleeping one
+// gets a "!" and opens its eyes), puffs up for one proud "HOO!" with sound
+// rings and a swinging watch, then waves its right wing, blushing.
+// st.greetT: seconds since the greeting started (-1 = none), ~2.7 s.
+
+function greetOwl(st, tick, asleep) {
+  var gt = st.greetT, gk = Math.floor(gt * 8), fx = [], dy = 0, sw = 0, o, face
+  if (gt < 0.45) {
+    o = { tufts: "perk", wingL: "fold", wingR: "fold", feet: "perch", lift: 1 }
+    face = { eyes: asleep && gt < 0.2 ? "half" : "wide", beak: "shut" }
+    dy = gt < 0.25 ? -1 : 0
+    if (asleep) fx.push({ rows: FX.bang, x: 29, y: gt < 0.25 ? 0 : 1, c: "o", op: 1 })
+  } else if (gt < 1.4) {
+    var hp = (gt - 0.45) / 0.95, on = hp < 0.75
+    o = { tufts: "perk", wingL: "lift", wingR: "lift", feet: "perch", puff: on ? 2 : 1, lift: on ? 1 : 0 }
+    face = { eyes: "happy", beak: on ? (hp < 0.2 ? "open" : "wide") : "shut" }
+    sw = gk % 4 < 2 ? 1 : -1
+    if (on) {
+      fx.push({ rows: HOO, x: 31, y: 3 - Math.round(hp * 3), c: "o", op: 1 })
+      fx.push({ rows: FX.bang, x: 42, y: 0, c: "o", op: 1 })
+      fx.push({ rows: RING[gk % 2], x: 1, y: 13, c: "o", op: 0.6 })
+    }
+  } else {
+    var wv = Math.floor(gt * 4) % 2 === 0
+    o = { tufts: wv ? "up" : "perk", wingL: "fold", wingR: wv ? "up" : "mid", feet: "perch" }
+    face = { eyes: "happy", beak: "shut", blush: true, tilt: -1 }
+    var hp2 = Math.min(1, (gt - 1.5) / 1.0)
+    if (gt >= 1.5) fx.push({ rows: FX.heartSmall, x: 1, y: 12 - Math.round(hp2 * 9), c: "r", op: hp2 < 0.85 ? 1 : 0.5 })
+  }
+  return { o: o, face: face, fx: fx, sw: sw, dy: dy }
 }

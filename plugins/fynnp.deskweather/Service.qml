@@ -30,6 +30,10 @@ Item {
 
   Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
 
+  // ---------- seasonal outfit (season-hats): date -> PetSeason key ----------
+  // "seasons" / "birthday" / "dayNight" live on the fynnp.desklayout entry (PetCalendar.qml).
+  PetCalendar { id: seasonCal; active: root.active }
+
   // ---------- settings ----------
   property string monitorName: ""
   property string fallbackMonitor: ""
@@ -46,6 +50,11 @@ Item {
   property string placeName: ""
   property bool imperial: false
   property int refreshMinutes: 30
+  // Pet settings (README): pet false hides the frog (the card stays),
+  // petReactions false turns touch off (no petting, hover or drag dangle),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
   property string petMotion: "full"
 
   function applySettings(raw) {
@@ -74,6 +83,8 @@ Item {
     placeName = typeof entry.place === "string" ? entry.place.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 32) : ""
     imperial = entry.units === "imperial"
     refreshMinutes = clampInt(entry.refresh, 30, 1440, 30)
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
     var pm = String(entry.petMotion || "full")
     petMotion = ["full", "calm", "still"].indexOf(pm) >= 0 ? pm : "full"
   }
@@ -276,7 +287,9 @@ Item {
   // ---------- derived ----------
   readonly property bool hasData: !!model
   readonly property int localHour: hasData ? Weather.hourOf(nowSec, model.offset) : 12
-  readonly property var frogState: !configured ? { mood: "setup", cold: false, heavy: false }
+  readonly property var frogState: demoMood !== "" ? { mood: demoMood, cold: demoMood === "snow" || demoMood === "cold", heavy: false }
+    : liveFrogState
+  readonly property var liveFrogState: !configured ? { mood: "setup", cold: false, heavy: false }
     : !hasData ? { mood: failures > 0 ? "offline" : "waiting", cold: false, heavy: false }
     : Weather.mood(model, localHour)
   readonly property var info: hasData ? Weather.info(model.code) : null
@@ -344,9 +357,29 @@ Item {
   Timer {
     interval: frog.fast ? 125 : 250
     repeat: true
-    running: root.active && (frog.animated || frog.moving)
+    running: root.active && root.showPet && root.petMotion !== "still" && (frog.animated || frog.moving)
     onTriggered: root.clock += interval / 1000
   }
+
+  // Demo / test hook for tools/pet-demo: override the frog's weather mood ("" = live data) and play
+  // touch reactions (pet | annoyed | squish | land). Does nothing until called.
+  property string demoMood: ""
+  IpcHandler {
+    target: "deskweather"
+    function demo(mood: string): void { root.demoMood = mood }
+    // outfits: "" (back to the date) | xmas | party | spooky; night: nightcap when asleep, morning: coffee on wake
+    function season(key: string): void { seasonCal.demoSeason = key }
+    function night(on: bool): void { seasonCal.demoNight = on ? 1 : -1 }
+    function morning(on: bool): void { seasonCal.demoMorning = on ? 1 : -1 }
+    function react(kind: string): void {
+      if (kind === "land") frog.touch.landings++
+      else frog.touch.react(kind === "none" ? "" : kind, kind === "annoyed" ? 2600 : kind === "squish" ? 2200 : 1800)
+    }
+  }
+  // Welcome back: the frog greets once when the user returns (shared/PetGreet.qml).
+  PetGreet { id: greet; pluginId: "fynnp.deskweather"; rect: place.rect; active: root.active && root.showPet && !place.editing }
+  // Affection: counts pets, level 1..5 (shared/PetMemory.qml).
+  PetMemory { id: memory; pluginId: "fynnp.deskweather"; touch: frog.touch }
 
   // Listens to the other cards (cat dancing, gamer launching); publishes nothing.
   DeskLink { id: link; name: "" }
@@ -431,17 +464,26 @@ Item {
         // ---- pixel frog + now ----
         Item {
           width: parent.width
-          height: frog.height
+          height: root.showPet ? frog.height : frogStatus.implicitHeight
 
           PixelFrog {
             id: frog
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
             motion: root.petMotion
+            reactions: root.petReactions
+            season: seasonCal.season
+            night: seasonCal.night
+            morning: seasonCal.morning
+            greetSerial: greet.serial
+            affection: memory.level
+            affectionUp: memory.fresh
             mood: root.frogState.mood
             cold: root.frogState.cold
             heavy: root.frogState.heavy
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             place: place
             window: win.contentItem
             catMood: link.peers.cat || ""
@@ -449,8 +491,9 @@ Item {
           }
 
           Column {
+            id: frogStatus
             anchors.left: frog.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2

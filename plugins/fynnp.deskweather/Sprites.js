@@ -471,6 +471,8 @@ function build(o) {
     stamp(g, Math.round(e2[0]) - 1, Math.round(e2[1]) + 1, scarf === "hang" ? ["r.r"] : ["r", ".", "r"])
   }
 
+  if (o.acc || o.cap || o.mug !== undefined) seasonFrog(g, o, dome, domeY, dr, mouthY, !!u)   // season: Santa hat / pumpkin / party hat; day-night: nightcap, mug
+  if (o.conf !== undefined) seasonConfetti(g, o.conf)   // season: confetti burst
   if (u) drawHook(g, u)
 
   if (o.lean) {
@@ -494,7 +496,8 @@ function frame(o) {
   var f = o.face || {}
   var key = [o.lift || 0, o.sq || 0, o.legs || "", o.arms || "", o.umb || "", o.glasses || 0, o.scarf || "",
     o.puddle || 0, o.sac || 0, o.tongue || "", o.snow ? 1 : 0, o.lean || 0,
-    [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",")].join("|")
+    [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(","),
+    o.acc || "", o.conf === undefined ? "" : o.conf, o.cap ? 1 : 0, o.mug === undefined ? "" : o.mug].join("|")
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -591,8 +594,9 @@ function init(fx) {
   effortR = mirrorRows(fx.effort)
 }
 
-function scene(st, fx0) {
+function scene(st, fx0, season0) {
   if (fx0) init(fx0)
+  if (season0) SEASON = season0
   var t = st.t, tick = Math.floor(t * 4), mood = st.mood
   var still = !!st.still
   if (still) tick = 0
@@ -718,6 +722,16 @@ function scene(st, fx0) {
     if (face.eyes !== "sleep") face.eyes = o.glasses ? face.eyes : "wide"
   }
 
+  var frogAsleep = mood === "sleep" && !awake
+  if (st.morningT >= 0 && !frogAsleep && SEASON) {   // day-night: stretch, coffee, good-morning croak
+    var mo = frogMorning(st, o); o = mo.o; face = mo.face; fx = mo.fx; dx = 0; dy = mo.dy
+  }
+  if (frogAsleep && st.night && SEASON) o.cap = 1   // day-night: nightcap while asleep after 23:00
+  // ---- welcome back (greet; see greetFrog below) ----
+  if (st.greetT >= 0) {
+    var gr = greetFrog(st, o, frogAsleep); o = gr.o; face = gr.face; fx = gr.fx; dx = 0; dy = gr.dy
+  }
+
   // ---- touch reactions ----
   var struggling = mood === "storm" || mood === "hot"
   var keepUmb = o.umb ? (o.umb === "flip" ? "tug" : o.umb) : ""
@@ -793,7 +807,7 @@ function scene(st, fx0) {
   }
 
   // hover: perks up, eyes follow the pointer
-  if (st.hovered && !st.reaction && !st.dragged && st.landT < 0
+  if (st.hovered && !st.reaction && !st.dragged && st.landT < 0 && !(st.greetT >= 0) && !(st.morningT >= 0)
       && (face.eyes === "open" || face.eyes === "half" || face.eyes === "blink" || face.eyes === "sleep" || face.eyes === "up")) {
     face.eyes = face.eyes === "blink" ? "blink" : "open"
     face.lookX = st.lookX; face.lookY = st.lookY
@@ -804,6 +818,7 @@ function scene(st, fx0) {
   delete o.scarfFlap
   delete o.dy; delete o.dx
   o.face = face
+  seasonScene(o, st)
   if (fx.length > FX_SLOTS) fx = fx.slice(0, FX_SLOTS)
   var air = Math.max(0, -dy)
   var skyRows = skyKind ? sky(skyKind, skyPhase % 38, skyLevel, o.umb || "", dx, dy) : null
@@ -901,3 +916,131 @@ function sweat(fx, t, n) {
 }
 
 function keepSweat(t) { var fx = []; sweat(fx, t, 1); return fx }
+
+// ---------------------------------------------------------------- season
+//
+// Seasonal outfit (shared/PetSeason.js), anchored on the eye domes (brim on
+// the dome tops ≈ y10, centre x21.5; follows lift / squash / hops). December:
+// a floppy Santa hat spanning both domes (the cold-weather scarf comes on its
+// own). October: a carved jack-o'-lantern worn as a helmet. Party days: a
+// party hat jauntily on the left dome, confetti on the floor and a burst
+// while petted (not with motion "still"). Everything on the head yields to
+// the umbrella. Frame key fields acc + conf.
+
+var SEASON = null    // PetSeason, handed in by the caller like PetFx
+
+function seasonScene(o, st) {
+  if (!SEASON || !st.season) return
+  o.acc = st.season
+  if (st.season === "party" && st.reaction === "pet" && st.motion !== "still" && st.reactT < 2)
+    o.conf = Math.floor(st.reactT * 8) / 16
+}
+
+var PUMPKIN = [
+  "......oJo......",
+  ".....oJGo......",
+  "..ooooJooooo...",
+  ".oOOOUOOOUOOo..",
+  "oOOeOOUOUOOeOo.",
+  "oOeeeOUOUOeeeUo",
+  "oOOOOOUOUOOOOUo",
+  "oOeOeOeOeOeOeUo",
+  ".oUeUeUeUeUeUo.",
+  "..ooooooooooo.."
+]
+
+// Morning coffee arms: both hands round the mug, then raised for a sip.
+HANDS.mug = [[18.5, 28.5], [24.5, 28.5]]
+HANDS.sip = [[18.5, 24.5], [24.5, 24.5]]
+
+function seasonFrog(g, o, dome, domeY, dr, mouthY, umb) {
+  var top = Math.round(domeY - dr)
+  function putG(x, y, c) { put(g, x, y, c) }
+  if (o.mug !== undefined) {
+    var m = SEASON.mug(o.mug < 2 ? o.mug : -1)
+    if (o.mug === 2) stamp(g, 18, mouthY - 4, m)   // at the mouth: a sip
+    else stamp(g, 18, 23, m)
+  }
+  if (o.acc === "party") {
+    var bits = SEASON.confetti(29, 10, 0, 34, 43, 35, -1)
+    for (var i = 0; i < bits.length; i++) putIf(g, bits[i][0], bits[i][1], bits[i][2], ".")
+  }
+  if (umb) return   // nothing on the head under the umbrella
+  if (o.cap) {   // day-night: nightcap instead of any hat, flopping over the left dome
+    SEASON.stampHat(putG, SEASON.hat("night", 11, 4, -1), 22, top + 1)
+    return
+  }
+  if (o.acc === "xmas") SEASON.stampHat(putG, SEASON.hat("santa", 13, 4, 1), 21, top + 1)
+  else if (o.acc === "spooky") stamp(g, 14, top - 7, PUMPKIN)
+  else if (o.acc === "party") SEASON.stampHat(putG, SEASON.hat("party", 7, 6, -1), Math.round(dome[0]), top + 1)
+}
+
+function seasonConfetti(g, conf) {
+  var bits = SEASON.confetti(43, 16, 1, 0, 42, 30, conf)
+  for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+// ---------------------------------------------------------------- day / night
+//
+// day-night: after 23:00 the sleeping frog wears a floppy nightcap (o.cap;
+// not under the umbrella). The first wake between 06:00 and 10:00
+// (st.morningT, s since the routine started, -1 = none; 4.5 s): a big stretch
+// with both arms up and a yawn, then a steaming coffee in both hands and a sip
+// (eyes sparkle: awake now), and a "good morning" croak with its throat sac.
+// Keeps the umbrella / puddle / shades of the weather. o.mug: 0/1 steam, 2 sip.
+
+function frogMorning(st, o0) {
+  var t = st.morningT, k = Math.floor(t * 4), fx = [], dy = 0
+  var umb = o0.umb ? (o0.umb === "flip" ? "tug" : o0.umb) : ""
+  var o = { legs: "sit", arms: umb ? "umb" : "rest", umb: umb, puddle: o0.puddle ? 1 : 0, glasses: o0.glasses ? 2 : 0, snow: o0.snow, scarfFlap: o0.scarfFlap }
+  var face
+  if (t < 1.6) {
+    var up = t > 0.25 && t < 1.4
+    o.arms = up ? "up" : o.arms; o.lift = up ? 1 : 0
+    face = { eyes: up ? "happy" : "half", mouth: up ? "yawn" : "tiny" }
+  } else if (t < 3.8) {
+    var sip = t > 2.4 && t < 3.0
+    o.arms = sip ? "sip" : "mug"; o.mug = sip ? 2 : k % 2
+    face = sip ? { eyes: "happy", mouth: "tiny" } : t >= 3.0 ? { eyes: "sparkle", mouth: "smile" } : { eyes: "half", mouth: "smile" }
+    if (t >= 3.0 && k % 2 === 0) fx.push({ rows: FX.sparkle[0], x: 38, y: 6, c: "o", op: 1 })
+  } else {
+    o.sac = k % 2 === 0 ? 2 : 1
+    face = { eyes: "happy", mouth: "smile" }
+    fx.push({ rows: FX.note, x: 33, y: 18 - (k % 4) * 2, c: "o", op: 1 })
+  }
+  return { o: o, face: face, fx: fx, dy: dy }
+}
+
+// ---------------------------------------------------------------- welcome back
+//
+// The user is back (shared/PetGreet.qml): the frog perks up (a sleeping one
+// gets a "!"), does a big happy hop (sparkles), then waves with its left hand
+// and croaks hello, throat sac ballooning, a little heart rising. Umbrella,
+// puddle, shades and snow stay on. st.greetT: s since the start, ~2.7 s.
+
+function greetFrog(st, o0, asleep) {
+  var gt = st.greetT, gk = Math.floor(gt * 8), fx = [], dy = 0, face
+  var umb = o0.umb ? (o0.umb === "flip" ? "tug" : o0.umb) : ""
+  var o = { legs: "sit", arms: umb ? "umb" : "rest", umb: umb, puddle: o0.puddle ? 1 : 0, glasses: o0.glasses ? 2 : 0, snow: o0.snow, scarfFlap: o0.scarfFlap }
+  if (gt < 0.4) {
+    face = { eyes: "wide", mouth: "o" }
+    dy = gt < 0.2 ? -1 : 0
+    if (asleep) fx.push({ rows: FX.bang, x: 40, y: gt < 0.2 ? 1 : 2, c: "o", op: 1 })
+  } else if (gt < 1.4) {
+    var hs = Math.floor((gt - 0.4) * 8)
+    o.legs = hs >= 1 && hs <= 5 ? "jump" : "sit"
+    dy = [0, -2, -3, -4, -3, -1, 0, 0][hs] || 0
+    o.sq = hs === 0 || hs === 6 ? 1 : 0
+    if (hs === 6 && o.puddle) o.puddle = 3
+    face = { eyes: dy < 0 ? "happy" : "squintL", mouth: "grin" }
+    if (gk % 4 < 2 && dy < 0) fx.push({ rows: FX.sparkle[gk % 2 === 0 ? 0 : 1], x: 3, y: 5, c: "o", op: 1 })
+  } else {
+    var wv = Math.floor(gt * 4) % 2 === 0
+    o.arms = wv ? "wave" : "waveB"
+    o.sac = wv ? 2 : 1
+    face = { eyes: "happy", mouth: wv ? "smile" : "omega" }
+    var hp = Math.min(1, (gt - 1.5) / 1.0)
+    if (gt >= 1.5) fx.push({ rows: FX.heartSmall, x: 37, y: 14 - Math.round(hp * 11), c: "r", op: hp < 0.85 ? 1 : 0.5 })
+  }
+  return { o: o, face: face, fx: fx, dy: dy }
+}

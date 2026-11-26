@@ -40,15 +40,17 @@ polled:
 - When nothing is happening, everybody sleeps, with their z's in sync.
 - Every few minutes a relaxed pet looks toward a neighbouring card and sends it something: the penguin a
   paper plane, the hamster a sunflower seed, the cat a music note, the dachshund a bone, the pigeon an
-  envelope, the axolotl a bubble. It flies off one card and in on the other, where the neighbour looks
+  envelope, the axolotl a bubble, the owl a feather, the frog a lily pad. It flies off one card and in on the other, where the neighbour looks
   back (a sleeping one opens its eyes) and the gift pops into a little heart. Off with `petMotion: "calm"`.
 - When you come back to the desk (the screensaver goes away, or your first input after a while), every
   visible pet says hello once, card by card from left to right: the penguin waves and types "HI", the
   hamster waves and offers you a seed, the cat lifts a headphone cup to listen, the dachshund spins, the
-  pigeon flies a loop and hands you a letter, the axolotl jumps with a "1UP".
+  pigeon flies a loop and hands you a letter, the axolotl jumps with a "1UP", the owl hoots once and waves a
+  wing, the frog hops and croaks hello.
 - The pets remember being petted (`~/.local/state/fynnp-desk/affection.json`). Five affection levels show
   briefly after each pet, each pet its own way: pips on the penguin's screen, hearts over the hamster, a VU
-  meter by the cat, bones over the dachshund, heart stamps over the pigeon, a life bar on the axolotl's HUD.
+  meter by the cat, bones over the dachshund, heart stamps over the pigeon, a life bar on the axolotl's HUD,
+  feathers above the owl's watch, lily pads in bloom over the frog.
   Fond pets perk up when you hover over them, and the fondest wave.
 
 <p align="center"><img src="docs/screenshots/reactions.png" width="560" alt="Reactions to a game launch"></p>
@@ -57,12 +59,15 @@ polled:
 
 The pets dress up for the calendar, each in its own way: in December the penguin wears a knitted scarf and puts
 a Santa hat on its CRT, the hamster and the cat wear Santa hats, the dachshund gets a Christmas sweater, the
-pigeon's bag becomes Santa's sack, and the axolotl wears reindeer antlers and a red nose. October brings a pumpkin
-on the desk, a pumpkin cap, a witch hat, a skeleton costume, a trick-or-treat bucket and devil horns. New Year's
+pigeon's bag becomes Santa's sack, the axolotl wears reindeer antlers and a red nose, and the owl and the frog wear
+Santa hats. October brings a pumpkin on the desk, a pumpkin cap, a witch hat, a skeleton costume, a trick-or-treat
+bucket, devil horns, the owl's witch hat and a jack-o'-lantern the frog wears as a helmet. New Year's
 Eve, New Year's Day and your birthday mean party hats and confetti, with a confetti burst when you pet them.
 
 They keep a daily routine too: after 23:00 they yawn more and sleep in striped nightcaps, and the first wake
-of the morning (06:00–10:00) is a big stretch and a tiny mug of coffee.
+of the morning (06:00–10:00) is a big stretch and a tiny mug of coffee. The owl keeps its own hours
+(`nightFrom` / `nightTo`) and wears its nightcap whenever it sleeps; its morning ends with winding the pocket watch
+for the day, the frog's with a "good morning" croak.
 
 ### Game session reports
 
@@ -127,9 +132,9 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `corner` | all cards | per card | `top-left`, `top-right`, `bottom-left`, `bottom-right`, `center-left`, `center-right` |
 | `marginX`, `marginY` | all cards | 32 / 58 (clock: 408 / 58, left of the system card) | Distance from the screen edges (used until you drag the card) |
 | `opacity`, `borderOpacity` | all cards | 0.5 / 0.08 | Card glass and edge |
-| `pet` | system, memory, audio, disk, net, games | `true` | `false` hides the pet; the card keeps its data and stops the pet's clock |
-| `petReactions` | system, memory, audio, disk, net, games | `true` | `false` turns petting, hover and the layout-mode dangle off; system, memory, disk and net become fully click-through again |
-| `petMotion` | system, memory, audio, disk, net, games | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks, pet chat); `"still"`: one frame per mood, no blinks and zero clock ticks (it still turns to look at you and shows a pose when petted) |
+| `pet` | system, memory, audio, disk, net, games, clock, weather | `true` | `false` hides the pet; the card keeps its data and stops the pet's clock |
+| `petReactions` | system, memory, audio, disk, net, games, clock, weather | `true` | `false` turns petting, hover and the layout-mode dangle off; the card becomes fully click-through again |
+| `petMotion` | system, memory, audio, disk, net, games, clock, weather | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks, pet chat, hover waves; the owl hoots once on the hour); `"still"`: one frame per mood, no blinks, no hoots and zero clock ticks (it still turns to look at you and shows a pose when petted) |
 | `fallbackMonitor` | system, memory, audio, net, clock | the other screen | Where to escape to when the home monitor has a fullscreen window |
 | `awayScale` | system, memory, audio, net, clock | auto | Size there (`0` = same physical size) |
 | `interval` | system, memory, disk, net | 1000 / 3000 / 1000 / 1000 | Poll interval in ms (only while visible) |
@@ -139,11 +144,9 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `clock24` | clock | `true` | 24-hour time; `false` = 12-hour with AM/PM |
 | `hoot` | clock | `"count"` | On the hour the owl hoots the hour (`"count"`, 1–12 hoots), once (`"once"`) or not at all (`"off"`) |
 | `nightFrom`, `nightTo` | clock | 23 / 7 | Hours the owl sleeps (it gets drowsy the hour before) |
-| `petMotion` | clock | `"full"` | `"calm"`: no idle fidgets, a single hoot · `"still"`: mood frames only, no animation and no clock ticks |
 | `latitude`, `longitude` | weather | unset | Your location in decimal degrees, e.g. `52.52`, `13.405`. Until both are set the card shows a setup hint and never touches the network. Sent to Open-Meteo rounded to 3 decimals (~100 m) |
 | `place`, `units` | weather | `""` / `"metric"` | Name shown on the card; `"imperial"` for °F and mph |
 | `refresh` | weather | 30 | Minutes between fetches (minimum 30); fetches happen only while the card is visible, cached in `~/.cache/fynnp-desk/` |
-| `petMotion` | weather | `"full"` | `"calm"`: no idle fidgets or neighbour extras; `"still"`: one frame per weather, no animation clock |
 | `grid` | layout | 24 | Snapping grid in px |
 | `seasons`, `birthday` | layout (all pets) | `true` / none | Seasonal outfits from the date: Christmas Dec 1–26, Halloween in October, party hats + confetti on Dec 31 / Jan 1 and on your `birthday` (`"MM-DD"`). `false` turns them off |
 | `dayNight` | layout (all pets) | `true` | After 23:00 the pets yawn more and wear a nightcap when asleep; their first wake between 06:00 and 10:00 is a stretch and a tiny coffee. `false` turns it off |

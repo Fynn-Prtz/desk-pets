@@ -35,6 +35,8 @@ Window {
     if (pet.grooving === true) e.push("grooving")
     if (typeof pet.screenKey === "string" && pet.screenKey !== "") e.push("screen:" + pet.screenKey)
     if (typeof pet.neighbour === "string" && pet.neighbour !== "") e.push("nb:" + pet.neighbour)
+    if (pet.bang === true) e.push("bang")                       // frog: gamer launching
+    if (pet.bop === true && pet.catMood !== undefined) e.push("bop")   // frog: croaks along to the cat (input-driven bop of the axolotl excluded)
     return e
   }
   function check(cond, msg) { if (!cond) { failed = true; log.push("  FAIL " + msg) } }

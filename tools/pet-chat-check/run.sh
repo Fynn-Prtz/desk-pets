@@ -4,13 +4,13 @@
 # (tools/pet-harness/qmlstub/Quickshell). Logs both phases + gaze every 0.5 s,
 # saves frames, a GIF and a strip.
 #   tools/pet-chat-check/run.sh SENDER RECEIVER OUT [vertical]
-#   SENDER/RECEIVER: buddy hamster cat dog pigeon gamer, optionally ":sleep"
+#   SENDER/RECEIVER: buddy hamster cat dog pigeon gamer owl frog, optionally ":sleep"
 #   e.g. tools/pet-chat-check/run.sh pigeon cat:sleep /tmp/chat
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-declare -A PLUG=([buddy]=desksys [hamster]=deskmem [cat]=deskaudio [dog]=deskdisk [pigeon]=desknet [gamer]=deskgames)
-declare -A TYPE=([buddy]=PixelBuddy [hamster]=PixelHamster [cat]=PixelCat [dog]=PixelDisk [pigeon]=PixelRouter [gamer]=PixelGamer)
-declare -A CALM=([buddy]='{mood:"chill"}' [hamster]='{mood:"calm"}' [cat]='{level:0.1}' [dog]='{mood:"light"}' [pigeon]='{mood:"light"}' [gamer]='{mood:"ready"}')
-declare -A SLEEP=([buddy]='{mood:"idle"}' [hamster]='{mood:"sleep"}' [cat]='{level:0}' [dog]='{mood:"idle"}' [pigeon]='{mood:"idle"}' [gamer]='{mood:"idle"}')
+declare -A PLUG=([buddy]=desksys [hamster]=deskmem [cat]=deskaudio [dog]=deskdisk [pigeon]=desknet [gamer]=deskgames [owl]=deskclock [frog]=deskweather)
+declare -A TYPE=([buddy]=PixelBuddy [hamster]=PixelHamster [cat]=PixelCat [dog]=PixelDisk [pigeon]=PixelRouter [gamer]=PixelGamer [owl]=PixelOwl [frog]=PixelFrog)
+declare -A CALM=([buddy]='{mood:"chill"}' [hamster]='{mood:"calm"}' [cat]='{level:0.1}' [dog]='{mood:"light"}' [pigeon]='{mood:"light"}' [gamer]='{mood:"ready"}' [owl]='{mood:"awake"}' [frog]='{mood:"cloudy"}')
+declare -A SLEEP=([buddy]='{mood:"idle"}' [hamster]='{mood:"sleep"}' [cat]='{level:0}' [dog]='{mood:"idle"}' [pigeon]='{mood:"idle"}' [gamer]='{mood:"idle"}' [owl]='{mood:"sleep"}' [frog]='{mood:"sleep"}')
 props() { local n=${1%%:*}; [ "${1#*:}" = sleep ] && echo "${SLEEP[$n]}" || echo "${CALM[$n]}"; }
 A=${1%%:*}; B=${2%%:*}; OUT=$3; V=false; [ "$4" = vertical ] && V=true
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT

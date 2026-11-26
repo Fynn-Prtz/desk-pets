@@ -3,14 +3,14 @@
 # in each season ("" xmas spooky party), calm + petted (+ party with motion
 # "still"), print Qt errors and write frames / GIFs / a contact sheet per pet.
 #
-#   tools/season-qml-check.sh OUT_DIR [pet ...]   pets: penguin hamster cat dog pigeon axolotl
+#   tools/season-qml-check.sh OUT_DIR [pet ...]   pets: penguin hamster cat dog pigeon axolotl owl frog
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd); ROOT=$(dirname "$HERE")
 OUT=${1:-/tmp/season-qml}; shift || true
-PETS=${*:-penguin hamster cat dog pigeon axolotl}
-declare -A PLUG=( [penguin]=desksys [hamster]=deskmem [cat]=deskaudio [dog]=deskdisk [pigeon]=desknet [axolotl]=deskgames )
-declare -A TYPE=( [penguin]=PixelBuddy [hamster]=PixelHamster [cat]=PixelCat [dog]=PixelDisk [pigeon]=PixelRouter [axolotl]=PixelGamer )
-declare -A CALM=( [penguin]='{mood:"chill"}' [hamster]='{mood:"calm"}' [cat]='{playing:false}' [dog]='{mood:"light"}' [pigeon]='{mood:"light"}' [axolotl]='{mood:"ready"}' )
+PETS=${*:-penguin hamster cat dog pigeon axolotl owl frog}
+declare -A PLUG=( [penguin]=desksys [hamster]=deskmem [cat]=deskaudio [dog]=deskdisk [pigeon]=desknet [axolotl]=deskgames [owl]=deskclock [frog]=deskweather )
+declare -A TYPE=( [penguin]=PixelBuddy [hamster]=PixelHamster [cat]=PixelCat [dog]=PixelDisk [pigeon]=PixelRouter [axolotl]=PixelGamer [owl]=PixelOwl [frog]=PixelFrog )
+declare -A CALM=( [penguin]='{mood:"chill"}' [hamster]='{mood:"calm"}' [cat]='{playing:false}' [dog]='{mood:"light"}' [pigeon]='{mood:"light"}' [axolotl]='{mood:"ready"}' [owl]='{mood:"awake"}' [frog]='{mood:"cloudy"}' )
 for pet in $PETS; do
   sc=$(mktemp --suffix=.js)
   cat > "$sc" <<JS
