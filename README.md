@@ -36,6 +36,10 @@ polled:
   sweats.
 - When a game is launching, a big **!** appears on the computer's screen and the cat's ears perk up.
 - When nothing is happening, everybody sleeps, with their z's in sync.
+- Every few minutes a relaxed pet looks toward a neighbouring card and sends it something: the penguin a
+  paper plane, the hamster a sunflower seed, the cat a music note, the dachshund a bone, the pigeon an
+  envelope, the axolotl a bubble. It flies off one card and in on the other, where the neighbour looks
+  back (a sleeping one opens its eyes) and the gift pops into a little heart. Off with `petMotion: "calm"`.
 
 <p align="center"><img src="docs/screenshots/reactions.png" width="560" alt="Reactions to a game launch"></p>
 
@@ -104,7 +108,8 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `opacity`, `borderOpacity` | all cards | 0.5 / 0.08 | Card glass and edge |
 | `pet` | system, memory, audio, disk, net, games | `true` | `false` hides the pet; the card keeps its data and stops the pet's clock |
 | `petReactions` | system, memory, audio, disk, net, games | `true` | `false` turns petting, hover and the layout-mode dangle off; system, memory, disk and net become fully click-through again |
-| `petMotion` | system, memory, audio, disk, net, games | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks); `"still"`: one frame per mood, no blinks and zero clock ticks (it still turns to look at you and shows a pose when petted) |
+| `petMotion` | system, memory, audio, disk, net, games | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks, pet chat); 
+`"still"`: one frame per mood, no blinks and zero clock ticks (it still turns to look at you and shows a pose when petted) |
 | `fallbackMonitor` | system, memory, audio, net | the other screen | Where to escape to when the home monitor has a fullscreen window |
 | `awayScale` | system, memory, audio, net | auto | Size there (`0` = same physical size) |
 | `interval` | system, memory, disk, net | 1000 / 3000 / 1000 / 1000 | Poll interval in ms (only while visible) |

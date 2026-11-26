@@ -107,6 +107,9 @@ Item {
 
   PetTouch {
     id: touch
+    gazing: chat.looking
+    gazeX: chat.lookX
+    gazeY: chat.lookY
     anchors.fill: parent
     active: buddy.active
     reactions: buddy.reactions
@@ -175,5 +178,21 @@ Item {
       palette: fx ? buddy.fxPalettes[fx.c] : buddy.fxPalettes.o
       rows: fx ? fx.rows : buddy.none
     }
+  }
+
+  // ---------- pet chat (shared PetChat.qml) ----------
+  // Calm and awake: may send a paper plane (a memo for the neighbour) to a neighbour card now and then;
+  // asleep: may receive one (wakes up to look). Only with motion "full".
+  readonly property string chatStatus: !buddy.extras || !buddy.active || buddy.stressed || buddy.grooving || buddy.screenKey !== "" ? ""
+    : buddy.mood === "chill" ? "calm" : buddy.mood === "idle" ? "sleep" : ""
+  PetChat {
+    id: chat
+    name: "buddy"
+    item: "plane"
+    status: buddy.chatStatus
+    place: buddy.place
+    clock: buddy.clock
+    px: buddy.px
+    from: Qt.point(10, 0)
   }
 }
