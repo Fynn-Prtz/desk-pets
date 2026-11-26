@@ -19,6 +19,7 @@ from tiny Rust helpers that sleep until they're asked or something changes.
 | 🎧 | **Desk Audio** (`fynnp.deskaudio`) | Now playing (MPRIS) with art and controls, a block-cell visualizer, output/input device pickers with volume, a per-app mixer. A cat that dances to your music. |
 | 🎮 | **Desk Games** (`fynnp.deskgames`) | Recently played Steam games with covers, one click to launch, live "Playing · 0:42", and the **last session report** (avg FPS, 1 % low, peak temps, kWh). A gamepad critter that mashes buttons and holds up a trophy. |
 | 📡 | **Desk Net** (`fynnp.desknet`) | Default-route interface and IPv4, live ↓/↑ rates, a 40 s mirrored throughput history, totals since the card started. A pixel router that dozes when the line is quiet, flickers its LEDs and passes packets when busy, and flops its antennas when you're offline. |
+| 🦉 | **Desk Clock** (`fynnp.deskclock`) | The time, the date, how far through the day, week and year you are, and uptime. An owl on a branch with a pocket watch that shows the real time: it checks the watch, swivels its head right round, hoots the hour on the hour (visual only, no sound) and sleeps at night. |
 | 🌙 | **Cat screensaver** (`fynnp.catsaver`) | A sleeping pixel cat with a swishing tail, breathing, drifting z's, a moon and twinkling stars, on every monitor. |
 | ✋ | **Layout mode** (`fynnp.desklayout`) | **SUPER + ALT + E**: drag the cards anywhere on a snapping grid, nudge them with the arrow keys, send them to another monitor. |
 
@@ -104,19 +105,21 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 |---|---|---|---|
 | `monitor` | all cards | first screen | Home monitor, e.g. `"DP-1"` |
 | `corner` | all cards | per card | `top-left`, `top-right`, `bottom-left`, `bottom-right`, `center-left`, `center-right` |
-| `marginX`, `marginY` | all cards | 32 / 58 | Distance from the screen edges (used until you drag the card) |
+| `marginX`, `marginY` | all cards | 32 / 58 (clock: 408 / 58, left of the system card) | Distance from the screen edges (used until you drag the card) |
 | `opacity`, `borderOpacity` | all cards | 0.5 / 0.08 | Card glass and edge |
 | `pet` | system, memory, audio, disk, net, games | `true` | `false` hides the pet; the card keeps its data and stops the pet's clock |
 | `petReactions` | system, memory, audio, disk, net, games | `true` | `false` turns petting, hover and the layout-mode dangle off; system, memory, disk and net become fully click-through again |
-| `petMotion` | system, memory, audio, disk, net, games | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks, pet chat); 
-`"still"`: one frame per mood, no blinks and zero clock ticks (it still turns to look at you and shows a pose when petted) |
-| `fallbackMonitor` | system, memory, audio, net | the other screen | Where to escape to when the home monitor has a fullscreen window |
-| `awayScale` | system, memory, audio, net | auto | Size there (`0` = same physical size) |
+| `petMotion` | system, memory, audio, disk, net, games | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks, pet chat); `"still"`: one frame per mood, no blinks and zero clock ticks (it still turns to look at you and shows a pose when petted) |
+| `fallbackMonitor` | system, memory, audio, net, clock | the other screen | Where to escape to when the home monitor has a fullscreen window |
+| `awayScale` | system, memory, audio, net, clock | auto | Size there (`0` = same physical size) |
 | `interval` | system, memory, disk, net | 1000 / 3000 / 1000 / 1000 | Poll interval in ms (only while visible) |
 | `breakReminder`, `breakRest` | system | 0 / 5 | Break buddy: after `breakReminder` minutes of activity (e.g. `50`; `0` = off) the penguin holds up a "take a break" sign and the card says so, until you've had no keyboard/mouse input for `breakRest` minutes. Event-driven (Wayland idle notifications), no polling |
-| `rows`, `hide` | disk |
- 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
+| `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
+| `clock24` | clock | `true` | 24-hour time; `false` = 12-hour with AM/PM |
+| `hoot` | clock | `"count"` | On the hour the owl hoots the hour (`"count"`, 1–12 hoots), once (`"once"`) or not at all (`"off"`) |
+| `nightFrom`, `nightTo` | clock | 23 / 7 | Hours the owl sleeps (it gets drowsy the hour before) |
+| `petMotion` | clock | `"full"` | `"calm"`: no idle fidgets, a single hoot · `"still"`: mood frames only, no animation and no clock ticks |
 | `grid` | layout | 24 | Snapping grid in px |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 
@@ -137,6 +140,7 @@ helpers/deskmem-feed   Rust (std-only): per-app private RAM from /proc, grouped 
 helpers/deskdisk-feed  Rust, std only: mountinfo + statvfs usage, diskstats I/O rates, same protocol
 helpers/desknet-feed   Rust (std-only): /proc/net/{route,dev,fib_trie} → interface, IPv4, rates, totals per stdin request
 plugins/fynnp.deskgames/helper   Rust: Steam VDF/ACF parser on inotify, prints only on change
+plugins/fynnp.deskclock          no helper: a Timer on each minute boundary while visible
 helpers/desk-session   Rust: MangoHud CSV → session JSON + notification, run by a systemd .path unit
 extras/                udev rule, MangoHud config, Hyprland snippets
 docs/DESKPLACE.md      how to make a new card movable
