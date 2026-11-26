@@ -15,6 +15,9 @@
 //                                (ax) on its bottom row (ay); stamp it so the
 //                                anchor lands on the pet's head top.
 //   confetti(seed, n, x0, y0, x1, y1, fall) -> [[x, y, key], ...]
+//   dayPart(date) -> { night (23:00-06:00), morning (06:00-10:00) }
+//   mug(steam) -> rows of a tiny steaming mug (day-night's morning coffee),
+//                 steam 0 / 1 = wisp phase, -1 = none; 7 x 7, handle right
 //
 // Each pet decides what to wear in character (CAST.md); this file only holds
 // what several pets share. Pure JS: the cards (via PetCalendar.qml), the pets
@@ -52,7 +55,7 @@ function config(raw) {
   var entry = {}
   for (var i = 0; i < list.length; i++)
     if (list[i] && list[i].id === "fynnp.desklayout") { entry = list[i]; break }
-  return { on: entry.seasons !== false, birthday: parseBirthday(entry.birthday) }
+  return { on: entry.seasons !== false, birthday: parseBirthday(entry.birthday), dayNight: entry.dayNight !== false }
 }
 
 // ---------------------------------------------------------------- colours
@@ -146,7 +149,7 @@ function crop(g, bx, by) {
 
 // kind: "santa" (floppy, white brim + pompom), "party" (striped cone),
 //       "witch" (wide brim, bent tip, gold buckle), "night" (floppy theme-
-//       coloured nightcap: b/h/n stripes, l pompom; used by day-night)
+//       coloured nightcap: p/l stripes, l pompom; day-night, after 23:00)
 // w: brim width in cells (5..15); h: rows above the brim (3..9; the canvas
 // is only 38 rows, so floppy hats spread sideways instead of up); tilt -1 /
 // 0 / 1: where the tip leans or flops. Memoised.
@@ -169,8 +172,8 @@ function hat(kind, w, h, tilt) {
       if (y > brimTop && flop * (x - bx) < hw + 0.3) return false   // no crown under the brim
       return s[0] < (hw - 0.5) * Math.pow(1 - s[1], 0.7) + 0.5
     }, kind === "santa" ? lit("R") : function(x, y, IN) {
-      if (!IN(x, y + 1) || !IN(x + 1, y)) return "n"
-      return (Math.floor((x - y) / 2) % 2 === 0) ? "b" : "h"
+      if (!IN(x, y + 1) || !IN(x + 1, y)) return "k"
+      return (Math.floor((x - y + 40) / 2) % 2 === 0) ? "p" : "l"
     })
     var fur = kind === "santa" ? "W" : "l", furD = kind === "santa" ? "V" : "w"
     part(g, function(x, y) { return y > brimTop && y < by + 1 && Math.abs(x - bx) < hw + 0.5 },
@@ -253,4 +256,31 @@ function confetti(seed, n, x0, y0, x1, y1, fall) {
     out.push([x, y, CONF[Math.floor(rk * CONF.length)]])
   }
   return out
+}
+
+// ---------------------------------------------------------------- day / night
+//
+// day-night: after 23:00 the pets wear a nightcap when asleep; the first wake
+// between 06:00 and 10:00 is a stretch and a tiny coffee.
+
+function dayPart(date) {
+  var h = date.getHours()
+  return { night: h >= 23 || h < 6, morning: h >= 6 && h < 10 }
+}
+
+// Tiny mug in theme keys, like the penguin's held mug: ink outline e, light
+// rim l, cup p/k, steam l (reads on light fur and on dark bodies).
+var MUG_CUP = [
+  "eeeee..",
+  "elllee.",
+  "epkke.e",
+  "epkkeee",
+  ".eeee.."
+]
+var STEAM = [[".l...", "..l..", ".l..."], ["..l..", ".l...", "..l.."]]
+function mug(steam) {
+  var top = steam < 0 ? ["......", "......"] : STEAM[steam % 2]
+  var out = []
+  for (var i = 0; i < 2; i++) out.push((top[i] + "...").slice(0, 7))
+  return out.concat(MUG_CUP)
 }

@@ -49,7 +49,7 @@ Item {
 
   // Wants frames although the mood alone would rest (the service keeps its
   // clock running for this).
-  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running
+  readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running || morningPlay.running
   // Reactions, drags and landings play at 8 fps; everything else at 4.
   readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
 
@@ -79,6 +79,7 @@ Item {
       && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered
     onTriggered: {
       buddy.fidget = buddy.fidgets[Math.floor(Math.random() * buddy.fidgets.length)]
+      if (buddy.night && Math.random() < 0.5) buddy.fidget = "yawn"   // day-night: extra sleepy
       buddy.fidgetStart = buddy.clock
       fidgetEnd.interval = buddy.fidgetLength[buddy.fidget]
       fidgetEnd.restart()
@@ -99,6 +100,28 @@ Item {
   }
   // Landing: 0.3 s squash + dust, a little rebound, then a dizzy wobble.
   Timer { id: landPlay; interval: 1500 }
+
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while dozing + more yawns; morning: the first wake of the
+  // day (idle -> chill) is a stretch + a sip of coffee. Two single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property real morningStart: 0
+  readonly property bool dozing: mood === "idle"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (buddy.active && buddy.morningDay !== new Date().toDateString() && buddy.mood === "chill" && touch.reaction === "" && !touch.dragged) buddy.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    buddy.morningDay = new Date().toDateString()
+    buddy.morningStart = buddy.clock
+    buddy.fidget = ""
+    morningPlay.restart()
+  }
 
   PetTouch {
     id: touch
@@ -127,7 +150,9 @@ Item {
     beat: Math.floor(buddy.wall * 4),
     screenKey: buddy.screenKey,
     season: buddy.season,
-    motion: buddy.motion
+    motion: buddy.motion,
+    night: buddy.night,
+    morningT: morningPlay.running ? buddy.clock - buddy.morningStart : -1
   }, PetFx, PetSeason)
 
   // season keys (PetSeason.COLORS) only while a season is on

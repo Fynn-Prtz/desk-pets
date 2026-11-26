@@ -36,7 +36,7 @@ Item {
 
   property alias touch: petTouch
   // True while the cat wants frames although nothing else would tick.
-  readonly property bool moving: petTouch.busy || fidgeting || landT >= 0
+  readonly property bool moving: petTouch.busy || fidgeting || landT >= 0 || morningPlay.running
 
   // Dance tiers from sustained loudness (EMA of the level) -- tune live.
   property real gentleBelow: 0.22
@@ -91,6 +91,7 @@ Item {
     onTriggered: {
       var names = Sprites.FIDGET_NAMES
       cat.fidget = names[Math.floor(Math.random() * names.length)]
+      if (cat.night && Math.random() < 0.5) cat.fidget = "yawn"   // day-night: extra sleepy
       cat.fidgetStart = cat.tick
       interval = 8000 + Math.floor(Math.random() * 7000)
     }
@@ -111,6 +112,28 @@ Item {
     function onLandingsChanged() { cat.landStart = cat.tick }
   }
 
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while asleep + more yawns; morning: the first wake of the
+  // day (sleep -> idle / dance) is a stretch + a mug of coffee. Single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property int morningStart: 0
+  readonly property bool dozing: mode === "sleep"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (cat.active && cat.morningDay !== new Date().toDateString() && (cat.mode === "idle" || cat.mode === "dance") && petTouch.reaction === "" && !petTouch.dragged) cat.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    cat.morningDay = new Date().toDateString()
+    cat.morningStart = cat.tick
+    cat.fidget = ""
+    morningPlay.restart()
+  }
+
   // ---------- scene ----------
   readonly property var scene: Sprites.scene({
     mode: mode, t: tick, tier: tier, amp: amp, blink: blinking,
@@ -120,7 +143,8 @@ Item {
     drag: petTouch.dragged, lean: petTouch.lean, lt: landT,
     nb: dancing ? "" : neighbour,
     zp: mode === "sleep" ? wallQ / 4 : 0,
-    season: season, motion: motion
+    season: season, motion: motion,
+    night: night, mt: morningPlay.running ? tick - morningStart : -1
   })
   readonly property string poseKey: scene.key
 

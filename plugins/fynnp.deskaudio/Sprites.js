@@ -128,11 +128,11 @@ function shader(base, hiRight) {
 //
 // A pose is a flat object; its key is the fields joined with "|".
 var FIELDS = ["body", "lift", "hx", "hy", "face", "eyes", "lx", "ly", "brow",
-              "mouth", "blush", "ears", "paws", "tail", "puff", "lean", "breath", "hp", "acc", "conf"]
+              "mouth", "blush", "ears", "paws", "tail", "puff", "lean", "breath", "hp", "acc", "conf", "cap", "mug"]
 
 function pose(over) {
   var p = { body: "sit", lift: 0, hx: 0, hy: 0, face: "f", eyes: "open", lx: 0, ly: 0, brow: "-",
-            mouth: "w", blush: 1, ears: "n", paws: "down", tail: "rest", puff: 0, lean: 0, breath: 0, hp: "on", acc: "", conf: "" }
+            mouth: "w", blush: 1, ears: "n", paws: "down", tail: "rest", puff: 0, lean: 0, breath: 0, hp: "on", acc: "", conf: "", cap: 0, mug: "" }
   if (over) for (var k in over) p[k] = over[k]
   return p
 }
@@ -500,7 +500,7 @@ function build(p) {
   // round the neck while it sleeps
   if (p.hp === "on") drawPhonesOn(g, hcx, hcy, hrx, hry, floorY)
   else if (p.hp === "neck") drawPhonesNeck(g, hcx, hcy, hrx, hry, floorY)
-  if (p.acc && SEASON) seasonCat(g, p, hcx, hcy, hry)   // season: hat on the headphone band
+  if ((p.acc || p.cap || p.mug) && SEASON) seasonCat(g, p, hcx, hcy, hry)   // season: hat on the headphone band; day-night: nightcap, mug
 
   // -- raised paws in front of the body and face
   for (var ri = 0; ri < raised.length; ri++) {
@@ -930,6 +930,11 @@ function scene(s) {
   } else {
     p = idle(s, out)
   }
+  if (s.mt >= 0 && !s.drag && !(s.lt >= 0 && s.lt < 18) && !s.rea && (s.mode === "idle" || s.mode === "dance")) {
+    out.fx = []; out.dx = 0
+    p = dayMorning(s)   // day-night: morning stretch + coffee
+  }
+  if (s.night && s.mode === "sleep") p.cap = 1   // day-night: nightcap while curled up
   seasonScene(p, s)
   out.key = keyOf(p)
   if (out.fx.length > FX_SLOTS) out.fx = out.fx.slice(0, FX_SLOTS)
@@ -976,7 +981,9 @@ function seasonCat(g, p, hcx, hcy, hry) {
   var top = Math.round(hcy - hry)
   function q(x, y, c) { put(g, x, y, c) }
   var side = p.face === "l" ? -1 : 1
-  if (p.acc === "xmas") SEASON.stampHat(q, SEASON.hat("santa", 9, 4, side), Math.round(hcx) - side, top + 2)
+  if (p.mug !== "") stamp(g, SEASON.mug(p.mug === "b" ? 1 : 0), Math.round(hcx) - 3, Math.round(hcy + hry) + 1)   // day-night: morning coffee
+  if (p.cap) SEASON.stampHat(q, SEASON.hat("night", 11, 4, -1), Math.round(hcx) + 1, top + 2)   // day-night: nightcap
+  else if (p.acc === "xmas") SEASON.stampHat(q, SEASON.hat("santa", 9, 4, side), Math.round(hcx) - side, top + 2)
   else if (p.acc === "spooky") SEASON.stampHat(q, SEASON.hat("witch", 10, 6, -side), Math.round(hcx), top + 1)
   else if (p.acc === "party") {
     SEASON.stampHat(q, SEASON.hat("party", 7, 6, side), Math.round(hcx) + side * 2, top + 1)
@@ -988,4 +995,22 @@ function seasonCat(g, p, hcx, hcy, hry) {
 function seasonConfetti(g, conf) {
   var bits = SEASON.confetti(13, 16, 1, 0, 42, 33, conf)
   for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+// ---------------------------------------------------------------- day / night
+//
+// day-night: after 23:00 the sleeping loaf wears a striped nightcap (pose
+// field cap); the first wake between 06:00 and 10:00 (s.mt = ticks since the
+// routine started, 8 per second, -1 = none; 4.5 s) is a long cat stretch with
+// a yawn, then it sits with a steaming mug in its paws (field mug "a"/"b" =
+// steam phase) and blinks happily. Overrides idle and the first dance moves.
+
+function dayMorning(s) {
+  var t = s.mt / 8
+  var f = Math.floor(s.mt / 2)
+  if (t < 0.4) return pose({ body: "crouch", eyes: "half", ears: "droop" })
+  if (t < 1.8) return pose({ body: "stretch", paws: "up2", eyes: "squint", mouth: t < 1.3 ? "yawn" : "o", ears: "perk", tail: "up" })
+  var p = pose({ eyes: t > 2.4 ? "happy" : "open", mouth: "w", tail: IDLE_TAIL[f % IDLE_TAIL.length], mug: f % 2 ? "b" : "a" })
+  if (t > 4.1) { p.mug = ""; p.mouth = "smile" }
+  return p
 }

@@ -523,6 +523,8 @@ Item {
           PixelCat {
             id: cat
             season: seasonCal.season
+            night: seasonCal.night
+            morning: seasonCal.morning
             px: 2
             place: place
             level: root.level

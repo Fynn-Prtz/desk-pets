@@ -437,6 +437,8 @@ Item {
           PixelDisk {
             id: buddy
             season: seasonCal.season
+            night: seasonCal.night
+            morning: seasonCal.morning
             px: 2
             mood: root.mood
             util: root.util

@@ -449,6 +449,7 @@ function buildPenguin(o) {
 
   if (o.face) drawFace(g, Math.floor(fcx), ey, o.face)
   if (o.acc) seasonPenguin(g, o, bodyCx, bcy, bry, cx, ht)   // season: scarf / party hat
+  if (o.cap) SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("night", 11, 4, -1), Math.round(cx) - 1, ht + 2)   // day-night: nightcap
 
   // flippers in front
   layer(g, flipMask(front), shade)
@@ -491,7 +492,7 @@ function frame(o) {
     o.tint || "", o.led || "", o.key === undefined ? "" : o.key, o.mug || "", o.crtShake || 0,
     o.lift || 0, o.squash || 0, o.melt || 0, o.doze ? 1 : 0, o.arms || "", o.legs || "", o.lean || 0, o.px || 0, o.py || 0,
     o.face ? [f.eyes, f.mouth, f.brows || "", f.blush === false ? 0 : 1, f.lookX || 0, f.lookY || 0].join(",") : "",
-    o.acc || "", o.conf === undefined ? "" : o.conf].join("|")
+    o.acc || "", o.conf === undefined ? "" : o.conf, o.cap ? 1 : 0].join("|")
   var hit = cache[key]
   if (hit) return hit
   if (cacheSize > 500) { cache = {}; cacheSize = 0 }
@@ -655,6 +656,9 @@ function scene(st, fx0, season0) {
     sweatDrops(fx, t, 2)
   }
 
+  if (st.morningT >= 0 && mood === "chill") face = dayMorning(o, st, fx, face)   // day-night: morning stretch + coffee
+  if (sleepy && st.night && SEASON) o.cap = 1   // day-night: nightcap while dozing after 23:00
+
   // ---- neighbours ----
   if (st.grooving && !stressed && !st.reaction) {
     var gb = st.beat
@@ -807,7 +811,7 @@ function seasonNeck(g, o, cx, bcy, bry) {
 
 function seasonPenguin(g, o, bodyCx, bcy, bry, cx, ht) {
   if (o.acc === "xmas" && !o.doze) seasonNeck(g, o, bodyCx, bcy, bry)
-  if (o.acc === "party") SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("party", 7, 5, -1), Math.round(cx) - 3, ht + 3)
+  if (o.acc === "party" && !o.cap) SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("party", 7, 5, -1), Math.round(cx) - 3, ht + 3)
 }
 
 function seasonDesk(g, o) {
@@ -833,4 +837,26 @@ function seasonDesk(g, o) {
 function seasonConfetti(g, o) {
   var bits = SEASON.confetti(7, 16, 1, 0, 42, 32, o.conf)
   for (var i = 0; i < bits.length; i++) put(g, bits[i][0], bits[i][1], bits[i][2])
+}
+
+// ---------------------------------------------------------------- day / night
+//
+// day-night: after 23:00 the dozing penguin wears a striped nightcap (o.cap,
+// PetSeason.hat("night")); the first wake between 06:00 and 10:00 is a big
+// stretch and then its morning coffee from the desk mug (st.morningT = s
+// since the routine started, -1 = none; 4.5 s, timed by the QML).
+
+function dayMorning(o, st, fx, face) {
+  var t = st.morningT
+  o.key = undefined; o.scr = "code"
+  if (t < 1.8) {
+    var up = t > 0.3 && t < 1.6
+    o.arms = up ? "high" : "up"; o.lift = up ? 1 : 0; o.legs = up ? "wide" : "stand"
+    return { eyes: up ? "sleep" : "blink", mouth: up ? "yawn" : "open", lookX: 0, lookY: 0 }
+  }
+  if (t < 2.1 || t > 4.2) { o.arms = "reach"; return { eyes: "happy", mouth: "smile", lookX: 0, lookY: 0 } }
+  o.arms = "sip"; o.mug = "held"
+  var ph = Math.floor(t * 2) % 3
+  fx.push({ rows: FX.puff[ph], x: 13, y: 9 - Math.floor((t - 2.1) * 2) % 4, c: "w", op: 0.5 })
+  return { eyes: t > 2.5 ? "happy" : "open", mouth: t > 3.4 ? "smile" : "sip", lookX: 0, lookY: 0 }
 }

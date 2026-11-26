@@ -209,7 +209,7 @@ function build(k) {
     eyes: k[0] || "open", lx: +k[1] || 0, ly: +k[2] || 0, beak: k[3] || "closed",
     wings: k[4] || "fold", feet: k[5] || "stand", puff: +k[6] || 0, sq: +k[7] || 0,
     lean: +k[8] || 0, blush: +k[9] || 0, hx: +k[10] || 0, hy: +k[11] || 0,
-    bag: +k[12] || 0, hold: k[13] || "", acc: SEASON ? k[14] || "" : "", conf: k[15] ? +k[15] : -1
+    bag: +k[12] || 0, hold: k[13] || "", acc: SEASON ? k[14] || "" : "", conf: k[15] ? +k[15] : -1, cap: SEASON && k[16] === "1"
   }
   var g = grid()
   var sq = o.sq, pf = o.puff
@@ -338,9 +338,10 @@ function build(k) {
   // envelopes sticking out of the bag
   for (var i = 0; i < o.bag; i++) stamp(g, o.acc === "xmas" ? GIFT_TOP : ENV_TOP, bx0 + 1 + i * 3, by0 - 2 + (i % 2), false)
   stamp(g, o.acc ? seasonBag(o.acc) : BAG, bx0, by0, false)
-  if (o.acc) seasonPigeon(g, o, hcx, hcy, hry, bx0, by0)   // season: hat on the bag / head
+  if (o.acc || o.cap) seasonPigeon(g, o, hcx, hcy, hry, bx0, by0)   // season: hat on the bag / head
   // ---- held things ----
   if (o.hold === "map") stamp(g, MAP, Math.round(bcx) - 7, Math.round(bcy) - 5, false)
+  if (/^mug/.test(o.hold) && SEASON) stamp(g, SEASON.mug(+o.hold.charAt(3)), Math.round(bcx) - 3, Math.round(bcy) - 6, false)   // day-night: morning coffee
   if (o.wings === "hold") layer(g, function(x, y) {
     return inEllipse(x, y, 14.5, bcy, 1.8, 2.4) || inEllipse(x, y, 28.5, bcy, 1.8, 2.4)
   }, function(x, y, inside) { return !IN(inside, x, y - 1) ? "h" : !IN(inside, x, y + 1) ? "d" : "n" })
@@ -515,7 +516,9 @@ function seasonPigeon(g, o, hcx, hcy, hry, bx0, by0) {
       var y = by0 - 1 - Math.round(2.2 * Math.sin((x - bx0 - 0.5) / 8 * Math.PI))
       if (get(g, x, y) !== "l") put(g, x, y, "e")
     }
-  } else if (o.acc === "party") SEASON.stampHat(q, SEASON.hat("party", 8, 6, 1), Math.round(hcx) - 2, Math.ceil(hcy - hry) + 1)
+  }
+  if (o.cap) SEASON.stampHat(q, SEASON.hat("night", 11, 4, -1), Math.round(hcx) + 1, Math.ceil(hcy - hry) + 2)   // day-night: nightcap
+  else if (o.acc === "party") SEASON.stampHat(q, SEASON.hat("party", 8, 6, 1), Math.round(hcx) - 2, Math.ceil(hcy - hry) + 1)
 }
 
 function seasonConfetti(g, conf) {

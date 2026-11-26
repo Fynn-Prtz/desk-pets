@@ -42,7 +42,7 @@ Item {
 
   PetColors { id: colors }
 
-  readonly property bool moving: bop || fidget !== "" || touch.busy || landPlay.running
+  readonly property bool moving: bop || fidget !== "" || touch.busy || landPlay.running || morningPlay.running
   readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
   readonly property real wall: { var tick = gamer.clock; return (Date.now() % 100000000) / 1000 }
 
@@ -73,6 +73,7 @@ Item {
       && touch.reaction === "" && !touch.dragged && !touch.hovered
     onTriggered: {
       gamer.fidget = gamer.fidgets[Math.floor(Math.random() * gamer.fidgets.length)]
+      if (gamer.night && Math.random() < 0.5) gamer.fidget = "stretch"   // day-night: extra sleepy (big tired stretch)
       gamer.fidgetStart = gamer.clock
       fidgetEnd.interval = gamer.fidgetLength[gamer.fidget]
       fidgetEnd.restart()
@@ -92,6 +93,28 @@ Item {
     function onLandingsChanged() { gamer.landStart = gamer.clock; landPlay.restart() }
   }
   Timer { id: landPlay; interval: 1500 }
+
+  // ---------- day / night (day-night; PetCalendar via the card) ----------
+  // night: nightcap while curled up + tired stretches; morning: the first
+  // wake of the day (idle -> ready) is a stretch + coffee. Single-shot timers.
+  property bool night: false
+  property bool morning: false
+  property string morningDay: ""
+  property real morningStart: 0
+  readonly property bool dozing: mood === "idle"
+  onDozingChanged: if (!dozing && morning && motion !== "still" && morningDay !== new Date().toDateString()) morningWait.restart()
+  Timer {
+    id: morningWait
+    interval: 800
+    onTriggered: if (gamer.active && gamer.morningDay !== new Date().toDateString() && gamer.mood === "ready" && touch.reaction === "" && !touch.dragged) gamer.startMorning()
+  }
+  Timer { id: morningPlay; interval: 4500 }
+  function startMorning() {
+    gamer.morningDay = new Date().toDateString()
+    gamer.morningStart = gamer.clock
+    gamer.fidget = ""
+    morningPlay.restart()
+  }
 
   PetTouch {
     id: touch
@@ -120,7 +143,9 @@ Item {
     landT: landPlay.running && !touch.dragged ? gamer.clock - gamer.landStart : -1,
     beat: Math.floor(gamer.wall * 4),
     season: gamer.season,
-    motion: gamer.motion
+    motion: gamer.motion,
+    night: gamer.night,
+    morningT: morningPlay.running ? gamer.clock - gamer.morningStart : -1
   }, PetFx, PetSeason)
 
   readonly property var fxPalettes: ({

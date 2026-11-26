@@ -380,9 +380,10 @@ function build(o) {
     var iy = p1 === "hold" ? fwdY(21) : fwdY(25)
     if (o.item === "seed") stamp(g, o.acc ? seasonTreat(o.acc) : seed, 21, iy, false)
     else if (o.item === "chip") stamp(g, chip, 18, iy + (p1 === "hold" ? 1 : 0), false)
+    else if (/^mug/.test(o.item) && SEASON) stamp(g, SEASON.mug(+o.item.charAt(3)), 19, iy - 3, false)   // day-night: morning coffee
   }
 
-  if (o.acc) seasonHamster(g, o, headTop, hcy, hry, ball)   // season: hat under the hoard, floor confetti
+  if (o.acc || o.cap) seasonHamster(g, o, headTop, hcy, hry, ball)   // season: hat under the hoard, floor confetti
   // Hoard balanced on the head.
   if (o.pile > 0 && !ball) {
     var top = fwdY(headTop)
@@ -428,7 +429,7 @@ var cacheSize = 0
 function key(o) {
   return [o.pose || "sit", o.eyes || "open", o.look ? o.look[0] : 0, o.look ? o.look[1] : 0,
     o.mouth || "omega", o.cheek || 0, o.paws || "down", o.item || "", o.pile || 0,
-    o.flush ? 1 : 0, o.lean || 0, o.nose ? 1 : 0, o.breath ? 1 : 0, o.acc || "", o.conf >= 0 ? o.conf : ""].join("|")
+    o.flush ? 1 : 0, o.lean || 0, o.nose ? 1 : 0, o.breath ? 1 : 0, o.acc || "", o.conf >= 0 ? o.conf : "", o.cap ? 1 : 0].join("|")
 }
 
 function frame(k, season0) {
@@ -443,7 +444,7 @@ function frame(k, season0) {
     mouth: f[4] || "omega", cheek: Math.max(0, Math.min(5, parseInt(f[5], 10) || 0)),
     paws: f[6] || "down", item: f[7] || "", pile: Math.max(0, Math.min(3, parseInt(f[8], 10) || 0)),
     flush: f[9] === "1", lean: parseInt(f[10], 10) || 0, nose: f[11] === "1" ? 1 : 0, breath: f[12] === "1" ? 1 : 0,
-    acc: SEASON ? f[13] || "" : "", conf: f[14] ? parseFloat(f[14]) : -1
+    acc: SEASON ? f[13] || "" : "", conf: f[14] ? parseFloat(f[14]) : -1, cap: SEASON && f[15] === "1" ? 1 : 0
   })
   cache[k] = rows
   cacheSize++
@@ -472,7 +473,8 @@ function seasonTreat(acc) { return TREATS[acc] || seed }
 function seasonHamster(g, o, headTop, hcy, hry, ball) {
   var top = ball ? fwdY(hcy - hry) + 1 : fwdY(headTop)
   function p(x, y, c) { put(g, x, y, c) }
-  if (o.acc === "xmas") SEASON.stampHat(p, SEASON.hat("santa", 13, 5, 1), CX - 1, top + 3)
+  if (o.cap) SEASON.stampHat(p, SEASON.hat("night", 13, 5, 1), CX - 1, top + 3)   // day-night: nightcap instead of a hat
+  else if (o.acc === "xmas") SEASON.stampHat(p, SEASON.hat("santa", 13, 5, 1), CX - 1, top + 3)
   else if (o.acc === "party") SEASON.stampHat(p, SEASON.hat("party", 8, 6, -1), CX + 2, top + 2)
   else if (o.acc === "spooky") {
     // a little hollowed pumpkin worn as a cap: ribbed dome, stem and leaf

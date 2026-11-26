@@ -393,6 +393,8 @@ Item {
           PixelHamster {
             id: hamster
             season: seasonCal.season
+            night: seasonCal.night
+            morning: seasonCal.morning
             px: 2
             mood: root.petMood
             fill: root.usedFraction

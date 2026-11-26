@@ -226,7 +226,7 @@ function build(k) {
     eyes: k[0] || "open", lx: +k[1] || 0, ly: +k[2] || 0, mouth: k[3] || "smile",
     pose: k[4] || "stand", legs: k[5] || "stand", ears: k[6] || "flop", tail: k[7] || "up",
     carry: k[8] || "", sq: +k[9] || 0, lean: +k[10] || 0, blush: +k[11] || 0,
-    hx: +k[12] || 0, hy: +k[13] || 0, acc: SEASON ? k[14] || "" : "", conf: k[15] ? +k[15] : -1
+    hx: +k[12] || 0, hy: +k[13] || 0, acc: SEASON ? k[14] || "" : "", conf: k[15] ? +k[15] : -1, cap: SEASON && k[16] === "1"
   }
   var g = grid()
   var sq = o.sq, pose = o.pose
@@ -433,8 +433,9 @@ function build(k) {
   // ---- carried prop ----
   if (o.carry === "bone") stamp(g, BONE, Math.round(mcx) - 11, noseY + 1, false, { o: "e" })
   if (o.carry === "block") stamp(g, BLOCK, Math.round(mcx) - 3, noseY + 2, false, { o: "e" })
+  if (/^mug/.test(o.carry) && SEASON) stamp(g, SEASON.mug(+o.carry.charAt(3)), Math.round(mcx) - 3, noseY, false)   // day-night: morning coffee
 
-  if (o.acc) seasonHead(g, o, hcx, hcy, hry)   // season: party hat
+  if (o.acc || o.cap) seasonHead(g, o, hcx, hcy, hry)   // season: party hat; day-night: nightcap
   if (o.lean) shear(g, o.lean, footY)
   if (o.conf >= 0) seasonConfetti(g, o.conf)   // season: confetti burst
 
@@ -610,6 +611,10 @@ function seasonBody(g, o, inBody, body) {
 }
 
 function seasonHead(g, o, hcx, hcy, hry) {
+  if (o.cap) {   // day-night: striped nightcap on the curled-up head
+    SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("night", 11, 4, 1), Math.round(hcx) - 1, Math.ceil(hcy - hry) + 2)
+    return
+  }
   if (o.acc !== "party") return
   SEASON.stampHat(function(x, y, c) { put(g, x, y, c) }, SEASON.hat("party", 8, 6, -1), Math.round(hcx) + 1, Math.ceil(hcy - hry) + 1)
 }

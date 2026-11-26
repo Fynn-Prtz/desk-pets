@@ -469,6 +469,8 @@ Item {
           PixelGamer {
             id: gamer
             season: seasonCal.season
+            night: seasonCal.night
+            morning: seasonCal.morning
             px: 2
             mood: root.mood
             strain: root.peerStrain
