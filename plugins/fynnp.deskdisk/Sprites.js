@@ -26,7 +26,8 @@
 // ground key: "shadow|hole|mound|pile"
 //   shadow 0 none, 1 standing, 2 small (dangling)
 //   hole   0 none, 1 hole in front of the paws, 2 hole with a block in it
-//   mound  0 none, 1..3 dirt heap growing behind, 4 bed mound (sleep)
+//   mound  0 none, 1..3 dirt heap growing behind, 4 bed mound (sleep),
+//          5 big heap + dirt clumps all over the floor (frantic digging)
 //   pile   0 none, 1 full disk: mounds everywhere + overflowing bone pile
 
 var W = 44
@@ -233,21 +234,21 @@ function build(k) {
   // head centre / radii, body polyline + radius, leg roots
   var hcx = 14.5 + o.hx, hcy = 15.5 + o.hy + sq * 1.4
   var hrx = 9.4 + sq * 0.7, hry = 7.6 - sq * 0.8
-  var body = [[21, 25.5 + sq * 0.4], [33, 25.5 + sq * 0.4]], br = 5.0, bsy = 1 - sq * 0.12
+  var body = [[21, 25.5 + sq * 0.4], [35, 25.5 + sq * 0.4]], br = 5.0, bsy = 1 - sq * 0.12
   var footY = 34
-  var tailRoot = [37, 23 + sq]
+  var tailRoot = [39, 23 + sq]
   if (pose === "dig") {
     hcy = 19.5 + o.hy; hcx = 14 + o.hx
-    body = [[21, 27], [33, 24]]
-    tailRoot = [37, 21.5]
+    body = [[21, 27], [35, 24]]
+    tailRoot = [39, 21.5]
   } else if (pose === "curl") {
     hcx = 13 + o.hx; hcy = 21.5 + o.hy; hry = 7.2; hrx = 9.2
-    body = [[19, 26.5], [33, 26.5]]; br = 5.0; bsy = 0.92 - sq * 0.06
-    tailRoot = [37, 28]
+    body = [[19, 26.5], [35, 26.5]]; br = 5.0; bsy = 0.92 - sq * 0.06
+    tailRoot = [39, 28]
   } else if (pose === "dangle") {
     hcy = 13.5 + o.hy
-    body = [[21, 23], [33, 23]]
-    tailRoot = [37, 21]
+    body = [[21, 23], [35, 23]]
+    tailRoot = [39, 21]
     footY = 36
   }
   var bcy = (body[0][1] + body[1][1]) / 2
@@ -264,10 +265,10 @@ function build(k) {
 
   // ---- tail (behind everything) ----
   var TAILS = {
-    up:   [[0, 0], [2.2, -3.5], [3.4, -7.5]],
+    up:   [[0, 0], [1.6, -3.6], [2.0, -7.6]],
     wag1: [[0, 0], [1.2, -3.8], [0.6, -8.0]],
-    wag2: [[0, 0], [3.0, -3.0], [5.0, -6.5]],
-    down: [[0, 0], [2.5, 2.0], [3.6, 5.5]],
+    wag2: [[0, 0], [2.2, -3.2], [3.0, -7.0]],
+    down: [[0, 0], [2.2, 2.0], [2.8, 5.5]],
     curl: [[0, 0], [2.5, 2.5], [0.5, 5.8], [-6, 6.6], [-12, 6.4]]
   }
   var tp = TAILS[o.tail] || TAILS.up
@@ -279,8 +280,8 @@ function build(k) {
   // ---- legs ----
   // each: [x centre, lift (cells up), forward reach]; far legs drawn first (shaded)
   var fl = { stand: 0, walk1: 0, walk2: 0, tap: 0 }
-  var near = [[18.5, 0, 0], [31.5, 0, 0]]     // front near, back near
-  var far = [[23.0, 0, 0], [35.5, 0, 0]]
+  var near = [[18.5, 0, 0], [33.5, 0, 0]]     // front near, back near
+  var far = [[23.0, 0, 0], [37.5, 0, 0]]
   var lg = o.legs
   if (lg === "walk1") { near[0][1] = 1; far[1][1] = 1 }
   if (lg === "walk2") { far[0][1] = 1; near[1][1] = 1 }
@@ -288,12 +289,12 @@ function build(k) {
   if (lg === "stomp") near[0][1] = 1
   if (lg === "shake1") { near[0][0] -= 1; near[1][0] += 1 }
   if (lg === "shake2") { far[0][0] += 1; far[1][0] -= 1 }
-  if (lg === "scratch1") near[1] = [30.5, 5, -3]
-  if (lg === "scratch2") near[1] = [32.5, 6, -1]
+  if (lg === "scratch1") near[1] = [32.5, 5, -3]
+  if (lg === "scratch2") near[1] = [34.5, 6, -1]
   if (pose === "dig") {
     near[0] = lg === "dig1" ? [15.5, 2, -2] : [17.5, 0, 0]
     far[0] = lg === "dig1" ? [22.0, 0, 0] : [20.0, 2, -2]
-    near[1] = [30.5, 0, 0]; far[1] = [35.0, 0, 0]
+    near[1] = [32.5, 0, 0]; far[1] = [37.0, 0, 0]
   }
   function legMask(list) {
     return function(x, y) {
@@ -510,7 +511,12 @@ function buildGround(shadow, hole, mound, pile, fore) {
     // a comfy dirt bed under a sleeping dog
     layer(g, function(x, y) { return y <= 35 && inEllipse(x, y, 22, 37, 19, 6.5) }, dirtFill)
   } else if (mound > 0) {
-    var r = 2 + mound * 1.4
+    if (mound >= 5) {
+      // dirt everywhere: a bigger heap and clumps all over the floor
+      var bits = [[2, 31], [20, 33], [26, 34], [31, 32], [13, 30], [35, 34]]
+      for (var bi = 0; bi < bits.length; bi++) stamp(g, bi % 2 ? [".pp.", "pkkp"] : ["pk", "ke"], bits[bi][0], bits[bi][1], false)
+    }
+    var r = 2 + Math.min(mound, 4) * 1.4
     layer(g, function(x, y) { return y <= 35 && inEllipse(x, y, 41, 36, r + 1, r) }, dirtFill)
   }
   if (hole === 3) {

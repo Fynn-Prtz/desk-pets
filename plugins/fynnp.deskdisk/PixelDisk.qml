@@ -143,7 +143,7 @@ Item {
       // frantic digging: paws every tick, ears flying, tongue out
       p.p = "dig"; p.g = odd ? "dig1" : "dig2"; p.e = "strain"; p.m = "pant"
       p.ea = odd ? "flap1" : "flop"; p.t = odd ? "wag1" : "wag2"
-      p.ho = 1; p.mo = 3; p.bl = strain === 2 ? 2 : 1; p.dig = "frantic"
+      p.ho = 1; p.mo = 5; p.bl = strain === 2 ? 2 : 1; p.dig = "frantic"
       p.dx = strain === 2 ? (odd ? 1 : -1) : 0
       return p
     }
@@ -302,14 +302,14 @@ Item {
   // fly up over its back and land on the heap; more and faster while
   // struggling
   Repeater {
-    model: 6
+    model: 8
     FxSprite {
       px: pet.px
       z: -1
       required property int index
-      readonly property int n: pet.frantic ? (pet.strain === 2 ? 6 : 5) : 3
+      readonly property int n: pet.frantic ? (pet.strain === 2 ? 8 : 6) : 3
       readonly property real t: pet.ph(pet.frantic ? 1.6 : 1.0, index / n)
-      readonly property real arc: [16, 22, 13, 26, 18, 24][index]
+      readonly property real arc: [16, 22, 13, 26, 18, 24, 20, 28][index]
       visible: pet.p.dig !== "" && !pet.reacting && index < n && t < 0.92
       palette: pet.bodyPalette
       rows: Sprites.clods[index % 3]
