@@ -102,15 +102,24 @@ Settings are the `fynnp.*` entries in `~/.config/omarchy/shell.json`. Changes ap
 | `corner` | all cards | per card | `top-left`, `top-right`, `bottom-left`, `bottom-right`, `center-left`, `center-right` |
 | `marginX`, `marginY` | all cards | 32 / 58 | Distance from the screen edges (used until you drag the card) |
 | `opacity`, `borderOpacity` | all cards | 0.5 / 0.08 | Card glass and edge |
+| `pet` | system, memory, audio, disk, net, games | `true` | `false` hides the pet; the card keeps its data and stops the pet's clock |
+| `petReactions` | system, memory, audio, disk, net, games | `true` | `false` turns petting, hover and the layout-mode dangle off; system, memory, disk and net become fully click-through again |
+| `petMotion` | system, memory, audio, disk, net, games | `"full"` | `"calm"`: no fidgets and no neighbour moments (grooving to the cat, signs, worried looks); `"still"`: one frame per mood, no blinks and zero clock ticks (it still turns to look at you and shows a pose when petted) |
 | `fallbackMonitor` | system, memory, audio, net | the other screen | Where to escape to when the home monitor has a fullscreen window |
 | `awayScale` | system, memory, audio, net | auto | Size there (`0` = same physical size) |
 | `interval` | system, memory, disk, net | 1000 / 3000 / 1000 / 1000 | Poll interval in ms (only while visible) |
-| `rows`, `hide` | disk | 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
+| `breakReminder`, `breakRest` | system | 0 / 5 | Break buddy: after `breakReminder` minutes of activity (e.g. `50`; `0` = off) the penguin holds up a "take a break" sign and the card says so, until you've had no keyboard/mouse input for `breakRest` minutes. Event-driven (Wayland idle notifications), no polling |
+| `rows`, `hide` | disk |
+ 4 / `[]` | Filesystem rows shown; mount points to leave out, e.g. `["/boot"]` |
 | `rows`, `fpsTarget` | games | 4 / 165 | Recently played rows, FPS meter target |
 | `grid` | layout | 24 | Snapping grid in px |
 | `timeout`, `fps`, `pixel` | screensaver | 150 / 8 / 8 | Idle seconds, animation fps, pixel size |
 
+Turning a pet setting down only ever removes work: `calm` stops the fidget timers, `still` and `pet: false`
+stop the pet's clock entirely. Example: `{ "id": "fynnp.desksys", "petMotion": "calm", "petReactions": false }`.
+
 Dragged positions are stored in `~/.config/omarchy/desk-layout/<plugin>.json`. Right-click a card in layout
+
 mode to reset it.
 
 ## How it's built

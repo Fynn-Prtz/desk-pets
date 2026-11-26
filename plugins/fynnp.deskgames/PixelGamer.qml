@@ -25,6 +25,11 @@ import "PetFx.js" as PetFx
 Item {
   id: gamer
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property bool reactions: true    // petReactions setting: false = no touch
+  // full: everything · calm: no fidgets (the card drops the cat bop) · still:
+  // mood frames only, no blinks; the card stops its clock.
+  readonly property bool extras: motion === "full"
+  readonly property bool still: motion === "still"
   property string mood: "idle"   // idle | ready | launching | playing | report
   property int strain: 0         // 0 calm | 1 system under load | 2 maxed / hot
   property bool bop: false
@@ -49,7 +54,7 @@ Item {
   readonly property bool awake: mood === "ready" || mood === "report" || (mood === "idle" && touch.hovered)
   Timer {
     interval: 3200
-    running: gamer.active && gamer.awake && !gamer.bop
+    running: gamer.active && gamer.awake && !gamer.bop && !gamer.still
     repeat: true
     onTriggered: {
       gamer.blinking = true
@@ -67,7 +72,7 @@ Item {
   property real fidgetStart: 0
   Timer {
     interval: 9000
-    running: gamer.active && gamer.mood === "ready" && !gamer.bop && gamer.fidget === ""
+    running: gamer.active && gamer.extras && gamer.mood === "ready" && !gamer.bop && gamer.fidget === ""
       && touch.reaction === "" && !touch.dragged && !touch.hovered
     onTriggered: {
       gamer.fidget = gamer.fidgets[Math.floor(Math.random() * gamer.fidgets.length)]
@@ -80,6 +85,8 @@ Item {
   Timer { id: fidgetEnd; onTriggered: gamer.fidget = "" }
   onMoodChanged: if (fidget !== "" && mood !== "ready") { fidget = ""; fidgetEnd.stop() }
   onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop() }
+  onExtrasChanged: if (!extras) { fidget = ""; fidgetEnd.stop() }
+
 
   // ---------- reactions ----------
   property real reactStart: 0
@@ -95,7 +102,9 @@ Item {
     id: touch
     anchors.fill: parent
     active: gamer.active
+    reactions: gamer.reactions
     place: gamer.place
+
     window: gamer.window
   }
 

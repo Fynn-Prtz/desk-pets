@@ -25,12 +25,21 @@ import "PetFx.js" as PetFx
 Item {
   id: buddy
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property bool reactions: true    // petReactions setting: false = no touch, card click-through
+  // full: everything · calm: no fidgets, no neighbour extras (groove, screen
+  // signs) · still: mood frames only, no blinks; the card stops its clock.
+  readonly property bool extras: motion === "full"
+  readonly property bool still: motion === "still"
   property string mood: "idle"   // idle | chill | work | load | maxed | hot
   property real clock: 0
   property int px: 2
   property bool active: true
   property string catMood: ""
   property string gamerMood: ""
+  // break-buddy: true while the card wants a break taken; the penguin holds
+  // up a sign with a steaming mug (waves it in motion "full").
+  property bool breakSign: false
+  readonly property bool signUp: breakSign && !stressed && !grooving && screenKey === ""
   property var place: null
   property Item window: null
   property alias touch: touch
@@ -41,13 +50,15 @@ Item {
   PetColors { id: colors }
 
   readonly property bool stressed: mood === "load" || mood === "maxed" || mood === "hot"
-  readonly property bool grooving: !stressed && catMood === "dance"
-  readonly property string screenKey: gamerMood === "launching" ? "bang"
+  readonly property bool grooving: extras && !stressed && catMood === "dance"
+  readonly property string screenKey: !extras ? ""
+    : gamerMood === "launching" ? "bang"
     : (gamerMood === "playing" && stressed) ? "pad" : ""
 
   // Wants frames although the mood alone would rest (the service keeps its
   // clock running for this).
   readonly property bool moving: grooving || screenKey !== "" || fidget !== "" || touch.busy || landPlay.running
+    || (signUp && extras)
   // Reactions, drags and landings play at 8 fps; everything else at 4.
   readonly property bool fast: active && (touch.reaction !== "" || touch.dragged || touch.landing || landPlay.running)
 
@@ -57,10 +68,10 @@ Item {
 
   // ---------- blinks ----------
   property bool blinking: false
-  readonly property bool awake: mood === "chill" || mood === "work" || (mood === "idle" && touch.hovered)
+  readonly property bool awake: mood === "chill" || mood === "work" || (mood === "idle" && touch.hovered) || signUp
   Timer {
     interval: 3200
-    running: buddy.active && buddy.awake && !buddy.grooving
+    running: buddy.active && buddy.awake && !buddy.grooving && !buddy.still
     repeat: true
     onTriggered: { buddy.blinking = true; blinkOff.restart(); interval = 2600 + Math.floor(Math.random() * 3000) }
   }
@@ -73,8 +84,8 @@ Item {
   property real fidgetStart: 0
   Timer {
     interval: 9000
-    running: buddy.active && buddy.mood === "chill" && !buddy.grooving && buddy.screenKey === ""
-      && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered
+    running: buddy.active && buddy.extras && buddy.mood === "chill" && !buddy.grooving && buddy.screenKey === ""
+      && buddy.fidget === "" && touch.reaction === "" && !touch.dragged && !touch.hovered && !buddy.signUp
     onTriggered: {
       buddy.fidget = buddy.fidgets[Math.floor(Math.random() * buddy.fidgets.length)]
       buddy.fidgetStart = buddy.clock
@@ -86,6 +97,8 @@ Item {
   Timer { id: fidgetEnd; onTriggered: buddy.fidget = "" }
   onMoodChanged: if (fidget !== "" && mood !== "chill") { fidget = ""; fidgetEnd.stop() }
   onActiveChanged: if (!active) { fidget = ""; fidgetEnd.stop() }
+  onExtrasChanged: if (!extras) { fidget = ""; fidgetEnd.stop() }
+  onSignUpChanged: if (signUp) { fidget = ""; fidgetEnd.stop() }
 
   // ---------- reactions ----------
   property real reactStart: 0
@@ -102,7 +115,9 @@ Item {
     id: touch
     anchors.fill: parent
     active: buddy.active
+    reactions: buddy.reactions
     place: buddy.place
+
     window: buddy.window
   }
 
@@ -123,8 +138,11 @@ Item {
     landT: landPlay.running && !touch.dragged ? buddy.clock - buddy.landStart : -1,
     grooving: buddy.grooving,
     beat: Math.floor(buddy.wall * 4),
-    screenKey: buddy.screenKey
+    screenKey: buddy.screenKey,
+    breakSign: buddy.signUp,
+    signWave: buddy.extras
   }, PetFx)
+
 
   readonly property var bodyPalette: colors.extend({ "L": colors.accent })
   readonly property var fxPalettes: ({

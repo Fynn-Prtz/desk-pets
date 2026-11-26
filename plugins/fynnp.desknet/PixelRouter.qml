@@ -31,6 +31,11 @@ import "PetFx.js" as PetFx
 Item {
   id: pet
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property bool reactions: true    // petReactions setting: false = no touch, card click-through
+  // full: everything · calm: no fidgets, no groove with the cat · still: mood
+  // frames only, no blinks; the card stops its clock.
+  readonly property bool extras: motion === "full"
+  readonly property bool still: motion === "still"
   property string mood: "idle"   // idle | light | busy | offline
   property real rx: 0            // bytes/s
   property real tx: 0
@@ -54,7 +59,7 @@ Item {
   readonly property int strain: !busy ? 0 : rate >= 60e6 ? 2 : rate >= 10e6 ? 1 : 0
   readonly property bool downOn: rx >= 4096
   readonly property bool upOn: tx >= 4096
-  readonly property bool grooving: !busy && !offline && catMood === "dance"
+  readonly property bool grooving: extras && !busy && !offline && catMood === "dance"
   readonly property bool sleepy: mood === "idle" && !grooving && !touch.hovered
   readonly property string reaction: touch.reaction
   property string fidget: ""
@@ -207,7 +212,7 @@ Item {
   readonly property bool calm: active && !sleepy && !busy && !offline && !grooving && reaction === "" && !touch.dragged
   Timer {
     interval: 3200
-    running: pet.calm && pet.fidget === ""
+    running: pet.calm && !pet.still && pet.fidget === ""
     repeat: true
     onTriggered: { pet.blinking = true; blinkOff.restart(); interval = 2600 + Math.floor(Math.random() * 3000) }
   }
@@ -215,7 +220,7 @@ Item {
   Timer {
     id: fidgetTimer
     interval: 11000
-    running: pet.calm && pet.fidget === "" && !touch.hovered
+    running: pet.calm && pet.extras && pet.fidget === "" && !touch.hovered
     repeat: true
     onTriggered: {
       var kinds = ["look", "preen", "bob", "coo", "stretch"]
@@ -226,6 +231,7 @@ Item {
     }
   }
   Timer { id: fidgetEnd; interval: 2200; onTriggered: pet.fidget = "" }
+  onExtrasChanged: if (!extras) { fidget = ""; fidgetEnd.stop() }
   onCalmChanged: if (!calm) { fidget = ""; fidgetEnd.stop() }
 
   // ---------- palettes ----------
@@ -474,7 +480,9 @@ Item {
     id: touch
     anchors.fill: parent
     active: pet.active
+    reactions: pet.reactions
     place: pet.place
     window: pet.window
+
   }
 }

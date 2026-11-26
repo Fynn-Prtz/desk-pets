@@ -42,6 +42,13 @@ Item {
   property real borderOpacity: 0.08
   property int interval: 1000
 
+  // Pet settings (README): pet false hides the pigeon (the card stays),
+  // petReactions false turns touch off (no petting, hover or drag dangle),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
+  property string petMotion: "full"
+
   function applySettings(raw) {
     var cfg = null
     try { cfg = JSON.parse(raw) } catch (e) { return }
@@ -50,6 +57,9 @@ Item {
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].id === "fynnp.desknet") { entry = list[i]; break }
     }
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
+    petMotion = ["full", "calm", "still"].indexOf(entry.petMotion) >= 0 ? entry.petMotion : "full"
     monitorName = typeof entry.monitor === "string" ? entry.monitor.slice(0, 64) : ""
     fallbackMonitor = typeof entry.fallbackMonitor === "string" ? entry.fallbackMonitor.slice(0, 64) : ""
     var as = parseFloat(entry.awayScale)
@@ -290,7 +300,7 @@ Item {
   Timer {
     interval: buddy.touch.busy ? 125 : 250
     repeat: true
-    running: root.active && buddy.needsClock
+    running: root.active && root.showPet && root.petMotion !== "still" && buddy.needsClock
     onTriggered: root.clock += interval / 1000
   }
 
@@ -390,14 +400,18 @@ Item {
         // ---- pixel pigeon + interface / down / up ----
         Item {
           width: parent.width
-          height: buddy.height
+          height: root.showPet ? buddy.height : buddyStatus.implicitHeight
 
           PixelRouter {
             id: buddy
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
+            motion: root.petMotion
+            reactions: root.petReactions
             mood: root.mood
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             rx: root.rx
             tx: root.tx
             catMood: link.peers.cat || ""
@@ -406,8 +420,9 @@ Item {
           }
 
           Column {
+            id: buddyStatus
             anchors.left: buddy.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2

@@ -38,6 +38,16 @@ Item {
   property real cardOpacity: 0.5
   property real borderOpacity: 0.08
   property int interval: 1000
+  // Pet settings (README): pet false hides the penguin (the card stays),
+  // petReactions false turns touch off (card fully click-through again),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
+  property string petMotion: "full"
+  // Break buddy: after breakReminder minutes (0 = off) of activity without a
+  // breakRest-minute pause, the penguin holds up a "take a break" sign.
+  property int breakReminder: 0
+  property int breakRest: 5
 
   function applySettings(raw) {
     var cfg = null
@@ -60,6 +70,11 @@ Item {
     var bo = parseFloat(entry.borderOpacity)
     borderOpacity = isNaN(bo) ? 0.08 : Math.max(0, Math.min(1, bo))
     interval = clampInt(entry.interval, 500, 10000, 1000)
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
+    petMotion = ["full", "calm", "still"].indexOf(entry.petMotion) >= 0 ? entry.petMotion : "full"
+    breakReminder = clampInt(entry.breakReminder, 0, 600, 0)
+    breakRest = clampInt(entry.breakRest, 1, 120, 5)
   }
 
   function clampInt(v, lo, hi, dflt) {
@@ -259,6 +274,7 @@ Item {
     : load < 90 ? "load"
     : "maxed"
   readonly property string moodText: !ready ? strings.t("waiting", "Waking up…")
+    : breakShown ? strings.t("breakTime", "Time for a break")
     : ({ idle: strings.t("idle", "Idle"), chill: strings.t("chilling", "Chilling"),
          work: strings.t("working", "Working"), load: strings.t("underLoad", "Under load"),
          maxed: strings.t("maxed", "Maxed out"), hot: strings.t("hot", "Running hot") })[mood]
@@ -276,8 +292,37 @@ Item {
   Timer {
     interval: buddy.fast ? 125 : 250
     repeat: true
-    running: root.active && (root.mood !== "chill" || buddy.moving)
+    running: root.active && root.showPet && root.petMotion !== "still" && (root.mood !== "chill" || buddy.moving)
     onTriggered: root.clock += interval / 1000
+  }
+
+  // ---------- break buddy ----------
+  // Event-driven: the compositor's ext-idle-notify (IdleMonitor) tells us when
+  // input has stopped for breakRest minutes and when it resumes; one single-shot
+  // Timer per work stretch fires after breakReminder minutes. Nothing polls, and
+  // the reminder keeps counting while the card is covered (one pending timer).
+  // Inhibitors (video, games) are ignored on purpose: no input for breakRest
+  // minutes counts as a pause.
+  property bool breakDue: false
+  readonly property bool breakShown: breakDue && (mood === "idle" || mood === "chill" || mood === "work")
+  function startWork() {
+    breakDue = false
+    if (breakReminder > 0) breakTimer.restart(); else breakTimer.stop()
+  }
+  onBreakReminderChanged: startWork()
+  IdleMonitor {
+    enabled: root.breakReminder > 0
+    timeout: root.breakRest * 60
+    respectInhibitors: false
+    onIsIdleChanged: {
+      if (isIdle) { root.breakDue = false; breakTimer.stop() }
+      else root.startWork()
+    }
+  }
+  Timer {
+    id: breakTimer
+    interval: Math.max(1, root.breakReminder) * 60000
+    onTriggered: root.breakDue = true
   }
 
   // Mood bus to the other desk cards. While covered the feed is paused and
@@ -376,23 +421,31 @@ Item {
         // ---- pixel buddy + status ----
         Item {
           width: parent.width
-          height: buddy.height
+          height: root.showPet ? buddy.height : buddyStatus.implicitHeight
 
           PixelBuddy {
             id: buddy
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
+            motion: root.petMotion
+            reactions: root.petReactions
             mood: root.mood
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             place: place
             window: win.contentItem
             catMood: link.peers.cat || ""
             gamerMood: link.peers.gamer || ""
+            breakSign: root.breakShown
+
           }
 
           Column {
+            id: buddyStatus
             anchors.left: buddy.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
+
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
@@ -400,7 +453,7 @@ Item {
             DaText {
               width: parent.width
               text: root.moodText
-              color: root.mood === "hot" ? Commons.Color.urgent : Commons.Color.foreground
+              color: root.mood === "hot" ? Commons.Color.urgent : root.breakShown ? Commons.Color.accent : Commons.Color.foreground
               font.pixelSize: Style.font.subtitle
               font.bold: true
             }

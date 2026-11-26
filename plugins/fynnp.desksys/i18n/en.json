@@ -12,5 +12,6 @@
   "vram": "VRAM",
   "load": "Load",
   "gpuOnly": "GPU only",
-  "noGpu": "No GPU stats"
+  "noGpu": "No GPU stats",
+  "breakTime": "Time for a break"
 }

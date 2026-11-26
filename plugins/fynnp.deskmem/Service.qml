@@ -40,6 +40,13 @@ Item {
   property real borderOpacity: 0.08
   property int interval: 3000
 
+  // Pet settings (README): pet false hides the hamster (the card stays),
+  // petReactions false turns touch off (no petting, hover or drag dangle),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
+  property string petMotion: "full"
+
   function applySettings(raw) {
     var cfg = null
     try { cfg = JSON.parse(raw) } catch (e) { return }
@@ -48,6 +55,9 @@ Item {
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].id === "fynnp.deskmem") { entry = list[i]; break }
     }
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
+    petMotion = ["full", "calm", "still"].indexOf(entry.petMotion) >= 0 ? entry.petMotion : "full"
     monitorName = typeof entry.monitor === "string" ? entry.monitor.slice(0, 64) : ""
     fallbackMonitor = typeof entry.fallbackMonitor === "string" ? entry.fallbackMonitor.slice(0, 64) : ""
     var as = parseFloat(entry.awayScale)
@@ -262,7 +272,7 @@ Item {
   Timer {
     interval: hamster.touch.busy ? 125 : 250
     repeat: true
-    running: root.active && (root.petMood !== "calm" || hamster.moving)
+    running: root.active && root.showPet && root.petMotion !== "still" && (root.petMood !== "calm" || hamster.moving)
     onTriggered: root.clock += interval / 1000
   }
 
@@ -397,23 +407,29 @@ Item {
         // ---- hamster + status ----
         Item {
           width: parent.width
-          height: hamster.height
+          height: root.showPet ? hamster.height : hamsterStatus.implicitHeight
 
           PixelHamster {
             id: hamster
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
+            motion: root.petMotion
+            reactions: root.petReactions
             mood: root.petMood
             fill: root.usedFraction
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             catMood: link.peers.cat || ""
             place: place
             window: win.contentItem
           }
 
           Column {
+            id: hamsterStatus
             anchors.left: hamster.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
+
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2

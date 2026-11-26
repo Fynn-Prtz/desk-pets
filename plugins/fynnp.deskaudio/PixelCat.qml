@@ -23,6 +23,12 @@ import "PetFx.js" as PetFx
 Item {
   id: cat
   property string motion: "full"   // full | calm | still (petMotion setting, wired by pet-settings)
+  property bool reactions: true    // petReactions setting: false = no touch
+  // full: everything · calm: no fidgets, no neighbour moments (worried, "!")
+  // · still: mood frames only (one pose per mode, no blinks, no landing
+  // play); the card stops its slow clock and hands the cat a frozen one.
+  readonly property bool extras: motion === "full"
+  readonly property bool still: motion === "still"
   property real level: 0
   property bool playing: false
   property real clock: 0
@@ -61,11 +67,12 @@ Item {
 
   readonly property bool dancing: playing && level > 0.02
   readonly property string mode: dancing ? "dance"
-    : (playing || level > 0.02 || clock < awakeUntil - 10) ? "idle"
-    : clock < awakeUntil ? "drowsy" : "sleep"
+    : (playing || level > 0.02 || (!still && clock < awakeUntil - 10)) ? "idle"
+    : !still && clock < awakeUntil ? "drowsy" : "sleep"
   readonly property int tier: energy > maxedAbove ? 4 : energy > intenseAbove ? 3 : energy > gentleBelow ? 1 : 0
-  readonly property int amp: level > 0.75 ? 3 : level > 0.5 ? 2 : level > 0.25 ? 1 : 0
-  readonly property string neighbour: gamerMood === "launching" ? "alert"
+  readonly property int amp: still ? 1 : level > 0.75 ? 3 : level > 0.5 ? 2 : level > 0.25 ? 1 : 0
+  readonly property string neighbour: !extras ? ""
+    : gamerMood === "launching" ? "alert"
     : (buddyMood === "maxed" || buddyMood === "hot") ? "stressed"
     : buddyMood === "load" ? "worried" : ""
 
@@ -73,11 +80,13 @@ Item {
   property bool blinking: false
   Timer {
     interval: 3200
-    running: cat.active && cat.mode !== "sleep"
+    running: cat.active && !cat.still && cat.mode !== "sleep"
     repeat: true
     onTriggered: { cat.blinking = true; blinkOff.restart(); interval = 2600 + Math.floor(Math.random() * 3000) }
   }
   Timer { id: blinkOff; interval: 150; onTriggered: cat.blinking = false }
+  onExtrasChanged: if (!extras) fidget = ""
+
 
   property string fidget: ""
   property int fidgetStart: 0
@@ -85,7 +94,7 @@ Item {
   Timer {
     interval: 9000
     repeat: true
-    running: cat.active && cat.mode === "idle" && cat.neighbour === "" && petTouch.reaction === "" && !petTouch.hovered
+    running: cat.active && cat.extras && cat.mode === "idle" && cat.neighbour === "" && petTouch.reaction === "" && !petTouch.hovered
     onTriggered: {
       var names = Sprites.FIDGET_NAMES
       cat.fidget = names[Math.floor(Math.random() * names.length)]
@@ -97,7 +106,7 @@ Item {
   // ---------- touch ----------
   property int reactStart: 0
   property int landStart: -1000
-  readonly property int landT: tick - landStart < 18 ? tick - landStart : -1
+  readonly property int landT: !still && tick - landStart < 18 ? tick - landStart : -1
   Connections {
     target: petTouch
     function onSerialChanged() {
@@ -158,6 +167,8 @@ Item {
     id: petTouch
     anchors.fill: parent
     active: cat.active
+    reactions: cat.reactions
     place: cat.place
+
   }
 }

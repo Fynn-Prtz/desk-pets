@@ -42,6 +42,13 @@ Item {
   property int fpsTarget: 165
   property int maxRows: 4
 
+  // Pet settings (README): pet false hides the axolotl (the card stays),
+  // petReactions false turns touch off (no petting, hover or drag dangle),
+  // petMotion full | calm (no fidgets/extras) | still (mood frames only, no clock).
+  property bool showPet: true
+  property bool petReactions: true
+  property string petMotion: "full"
+
   function applySettings(raw) {
     var cfg = null
     try { cfg = JSON.parse(raw) } catch (e) { return }
@@ -50,6 +57,9 @@ Item {
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].id === "fynnp.deskgames") { entry = list[i]; break }
     }
+    showPet = entry.pet !== false
+    petReactions = entry.petReactions !== false
+    petMotion = ["full", "calm", "still"].indexOf(entry.petMotion) >= 0 ? entry.petMotion : "full"
     monitorName = typeof entry.monitor === "string" ? entry.monitor.slice(0, 64) : ""
     var c = String(entry.corner || "center-right")
     corner = ["top-left", "top-right", "bottom-left", "bottom-right", "center-left", "center-right"].indexOf(c) >= 0 ? c : "center-right"
@@ -345,7 +355,8 @@ Item {
   // The system buddy's load makes the player struggle: 1 under load, 2 maxed / hot.
   readonly property int peerStrain: link.peers.buddy === "load" ? 1
     : (link.peers.buddy === "maxed" || link.peers.buddy === "hot") ? 2 : 0
-  readonly property bool peerBop: link.peers.cat === "dance"
+  // Dancing along with the cat is an idle extra: petMotion full only.
+  readonly property bool peerBop: link.peers.cat === "dance" && petMotion === "full"
 
   // Pet clock (seconds): 4 fps while visible and something moves, 8 fps
   // while a touch reaction / drag / landing plays. Ready and report rest.
@@ -353,8 +364,8 @@ Item {
   Timer {
     interval: gamer.fast ? 125 : 250
     repeat: true
-    running: root.active && (root.mood === "idle" || root.mood === "launching" || root.mood === "playing"
-      || gamer.moving)
+    running: root.active && root.showPet && root.petMotion !== "still"
+      && (root.mood === "idle" || root.mood === "launching" || root.mood === "playing" || gamer.moving)
     onTriggered: root.clock += interval / 1000
   }
 
@@ -473,23 +484,29 @@ Item {
         // ---- pixel gamer + status ----
         Item {
           width: parent.width
-          height: gamer.height
+          height: root.showPet ? gamer.height : gamerStatus.implicitHeight
 
           PixelGamer {
             id: gamer
             px: 2
+            visible: root.showPet
+            width: root.showPet ? 44 * px : 0
+            motion: root.petMotion
+            reactions: root.petReactions
             mood: root.mood
             strain: root.peerStrain
             bop: root.peerBop
             clock: root.clock
-            active: root.active
+            active: root.active && root.showPet
             place: place
             window: win.contentItem
           }
 
           Column {
+            id: gamerStatus
             anchors.left: gamer.right
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: root.showPet ? Style.space(10) : 0
+
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
